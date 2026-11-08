@@ -334,7 +334,7 @@ const Navbar = () => {
     >
       
       {/* Brand Name */}
-      <GlowLogo size={28} fontSize="20px" />
+      <GlowLogo size={34} fontSize="26px" />
 
       {/* Desktop Tabs */}
       <div className="desktop-nav" style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
@@ -431,7 +431,7 @@ const Navbar = () => {
             style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'var(--bg-primary)', zIndex: 9999, overflowY: 'auto' }}
           >
             <div style={{ padding: '20px 5%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)' }}>
-              <GlowLogo size={28} fontSize="20px" onClick={() => setMobileOpen(false)} />
+              <GlowLogo size={34} fontSize="26px" onClick={() => setMobileOpen(false)} />
               <button onClick={() => setMobileOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }}><X size={28}/></button>
             </div>
             <div style={{ padding: '40px 5%', display: 'flex', flexDirection: 'column', gap: '24px' }}>

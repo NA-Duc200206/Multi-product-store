@@ -22,7 +22,7 @@ const Footer = () => {
       }}>
         <div>
           <div style={{ marginBottom: '16px' }}>
-            <GlowLogo size={28} fontSize="20px" color={isDark ? 'var(--text-primary)' : '#ffffff'} />
+            <GlowLogo size={32} fontSize="24px" color={isDark ? 'var(--text-primary)' : '#ffffff'} />
           </div>
           <p style={{ lineHeight: '1.6' }}>
             Premium shopping experience with genuine cosmetics, fashion, and designer accessories.
@@ -46,7 +46,7 @@ const Footer = () => {
         </div>
         <div>
           <h4 style={{ color: isDark ? 'var(--text-primary)' : '#ffffff', marginBottom: '16px' }}>Customer Support</h4>
-          <p style={{ lineHeight: '1.6', marginBottom: '8px' }}>Email: support@glowstore.com</p>
+          <p style={{ lineHeight: '1.6', marginBottom: '8px' }}>Email: support@uconext.com</p>
           <p style={{ lineHeight: '1.6' }}>Hotline: 1900 6868</p>
         </div>
       </div>
@@ -57,7 +57,7 @@ const Footer = () => {
         fontSize: '12px',
         color: isDark ? 'var(--text-muted)' : 'rgba(255,255,255,0.4)'
       }}>
-        © 2026 GlowStore. All rights reserved. VNPAY Sandbox payment integrated.
+        © 2026 UCONEXT (Utilities • Connect • Trends). All rights reserved. VNPAY Sandbox payment integrated.
       </div>
     </footer>
   );

@@ -1,0 +1,33 @@
+<svg width="512" height="512" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Soft Ambient Drop Shadow for Icon Depth -->
+    <filter id="icon-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#2454F4" flood-opacity="0.18" />
+    </filter>
+  </defs>
+
+  <!-- 1. Bright Pearl Squircle Backplate -->
+  <rect width="100" height="100" rx="26" fill="#FFFFFF" filter="url(#icon-shadow)" />
+  <rect x="2" y="2" width="96" height="96" rx="24" stroke="#2454F4" stroke-opacity="0.16" stroke-width="3" />
+
+  <!-- 2. UCONEXT Signature U Blade with 45° Triangle Arrow Notch -->
+  <path
+    d="
+      M 18 16
+      H 35
+      V 56
+      C 35 63.5, 40.5 68, 50 68
+      C 59.5 68, 65 63.5, 65 56
+      V 46
+      L 76 34
+      L 65 22
+      V 16
+      H 82
+      V 56
+      C 82 74, 69 84, 50 84
+      C 31 84, 18 74, 18 56
+      Z
+    "
+    fill="#2454F4"
+  />
+</svg>

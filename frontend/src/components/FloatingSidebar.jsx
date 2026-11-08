@@ -135,8 +135,8 @@ const FloatingSidebar = () => {
               </div>
 
               <div style={{ marginTop: 'auto', padding: '20px', background: 'linear-gradient(135deg, rgba(58, 97, 246, 0.1), rgba(123, 70, 243, 0.1))', borderRadius: '16px', border: '1px solid rgba(123, 70, 243, 0.2)' }}>
-                <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '8px' }}>GlowStore Premium</h4>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>Experience luxury e-commerce. All rights reserved &copy; 2026.</p>
+                <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '8px' }}>UCONEXT</h4>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>Utilities • Connect • Trends. All rights reserved &copy; 2026.</p>
               </div>
 
             </motion.div>

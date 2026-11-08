@@ -508,7 +508,7 @@ const ProductDetail = () => {
             <div>
               <h3 style={{ fontSize: '18px', color: 'var(--text-primary)', marginBottom: '16px' }}>Technical Specifications & Care Instructions</h3>
               <ul style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.8', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <li>Brand: GlowStore Premium</li>
+                <li>Brand: UCONEXT Official</li>
                 <li>Origin: Vietnam / Genuine imported materials</li>
                 <li>Storage: Store in a cool, dry place, avoid direct sunlight</li>
                 <li>Warranty / Expiry: Refer to product packaging</li>

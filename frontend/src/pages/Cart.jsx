@@ -40,7 +40,7 @@ const Cart = () => {
   const handleApplyPromoCode = (e) => {
     e.preventDefault();
     const cleanCode = promoCode.trim().toUpperCase();
-    if (cleanCode === 'GLOWSTORE' || cleanCode === 'GLOW10' || cleanCode === 'SALE10') {
+    if (cleanCode === 'UCONEXT' || cleanCode === 'GLOWSTORE' || cleanCode === 'GLOW10' || cleanCode === 'SALE10') {
       setDiscountPercent(10);
       setAppliedCode(cleanCode);
       showToast('Promo code applied successfully (10% discount)!', 'success');

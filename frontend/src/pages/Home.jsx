@@ -161,7 +161,7 @@ const AnimatedStatsCounter = ({ end, active, suffix = '', prefix = '' }) => {
 
 const AIShoppingAssistant = () => {
   const [messages, setMessages] = useState([
-    { sender: 'ai', text: 'Welcome to GlowStore! I am your AI Shopping Assistant. How can I help you discover something premium today?', time: 'Just now' }
+    { sender: 'ai', text: 'Welcome to UCONEXT (Utilities • Connect • Trends)! I am your AI Shopping Assistant. How can I help you discover something great today?', time: 'Just now' }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -350,7 +350,7 @@ const ReviewSlider = () => {
   const { isDark } = useTheme();
   const reviews = [
     { quote: "Absolutely authentic products. Sourced my premium fashion shoes here. Packaging and invoice receipt were fully authentic.", author: "Elena R.", title: "Verified Fashion Buyer", rating: 5, avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" },
-    { quote: "GlowStore's customer service is top tier. They answered all my warranty questions regarding the OLED screen in minutes.", author: "Marcus T.", title: "Elite Tech Member", rating: 5, avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150" },
+    { quote: "UCONEXT's customer service is top tier. They answered all my warranty questions regarding the OLED screen in minutes.", author: "Marcus T.", title: "Elite Tech Member", rating: 5, avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150" },
     { quote: "The support team helped me select the right keyboard switch. Extremely fast shipping and robust support.", author: "David P.", title: "Verified Buyer", rating: 5, avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" }
   ];
 
@@ -473,7 +473,7 @@ const FinalCTA = () => {
             fontSize: 'clamp(15px, 1.6vw, 18px)', color: 'var(--text-secondary)',
             maxWidth: '580px', margin: '0 auto 48px auto', lineHeight: '1.7'
           }}>
-            Join GlowStore today. Discover authentic, warranty-backed products from global luxury and streetwear brands.
+            Join UCONEXT today. Discover authentic utilities, connected tech, and trending lifestyle products.
           </p>
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link to="/register" className="shining-btn" style={{
@@ -614,10 +614,10 @@ const Home = () => {
         pointerEvents: 'auto'
       }}>
         <GlowLogo 
-          size={36} 
-          fontSize="30px" 
+          size={44} 
+          fontSize="34px" 
           style={{ transition: 'transform 0.3s ease' }}
-          textStyle={{ fontWeight: '955', letterSpacing: '0.12em' }}
+          textStyle={{ fontWeight: '800', letterSpacing: '-0.01em' }}
           onMouseEnter={e => {
             e.currentTarget.style.transform = 'scale(1.05)';
           }}
@@ -1487,11 +1487,11 @@ const Home = () => {
             </div>
           </section>
 
-          {/* Scene 6: Why GlowStore (Animated Stats Section) */}
+          {/* Scene 6: Why UCONEXT (Animated Stats Section) */}
           <section style={{ padding: '100px 5%', background: 'var(--bg-secondary)', borderTop: '1px solid var(--glass-border)', borderBottom: '1px solid var(--glass-border)', position: 'relative', zIndex: 2 }}>
             <ScrollReveal direction="up">
               <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-                <span className="badge badge-secondary" style={{ marginBottom: '10px', letterSpacing: '0.2em' }}>WHY GLOWSTORE</span>
+                <span className="badge badge-secondary" style={{ marginBottom: '10px', letterSpacing: '0.2em' }}>WHY UCONEXT</span>
                 <h2 style={{ fontSize: 'clamp(26px, 3.5vw, 42px)', fontWeight: '950', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                   Trusted by millions worldwide
                 </h2>

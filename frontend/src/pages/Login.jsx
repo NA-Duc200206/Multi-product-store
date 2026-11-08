@@ -308,7 +308,7 @@ const Login = () => {
           
           <div style={{ marginBottom: '24px' }}>
             <h1 style={{ fontSize: '40px', fontWeight: '800', color: isDark ? 'white' : 'var(--text-primary)', marginBottom: '12px', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-              Welcome to<br/>GlowStore.
+              Welcome to<br/>UCONEXT.
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '15px' }}>
               <ShieldCheck size={18} color="#10b981" /> 
