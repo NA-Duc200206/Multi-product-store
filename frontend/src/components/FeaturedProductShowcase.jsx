@@ -8,6 +8,15 @@ import { formatVND, translateCategoryName, getSafeImageUrl, handleImageError } f
 
 const PROMO_LABELS = ['FEATURED', 'BEST SELLER', 'TRENDING', 'NEW ARRIVAL', 'EDITOR PICK'];
 
+const getCategoryAuraColor = (categoryName = '') => {
+  const name = categoryName.toLowerCase();
+  if (name.includes('cosmetic') || name.includes('beauty')) return 'rgba(236, 72, 153, 0.28)';
+  if (name.includes('fashion')) return 'rgba(99, 102, 241, 0.28)';
+  if (name.includes('accessor') || name.includes('watch')) return 'rgba(245, 158, 11, 0.25)';
+  if (name.includes('home')) return 'rgba(16, 185, 129, 0.25)';
+  return 'rgba(36, 84, 244, 0.30)';
+};
+
 const FeaturedProductShowcase = ({ products = [], loading = false }) => {
   const { isDark } = useTheme();
   const { addToCart } = useCart();
@@ -142,8 +151,67 @@ const FeaturedProductShowcase = ({ products = [], loading = false }) => {
         overflow: 'hidden',
       }}
     >
+      {/* Dynamic Ambient Backdrop synced to active product */}
+      {!loading && currentProduct && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <AnimatePresence mode="sync">
+            <motion.div
+              key={`bg-${currentProduct._id || currentProduct.id || activeIndex}`}
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.05 }}
+              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1.12 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: shouldReduceMotion ? 0.2 : 0.85, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                position: 'absolute',
+                inset: '-10%',
+                backgroundImage: `url("${getSafeImageUrl(currentProduct.image)}")`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                filter: 'blur(72px) saturate(1.45)',
+                opacity: isDark ? 0.28 : 0.16,
+              }}
+            />
+          </AnimatePresence>
+
+          {/* Category-tinted radial aura */}
+          <motion.div
+            animate={{
+              background: `radial-gradient(circle at ${activeIndex % 2 === 0 ? '26% 45%' : '34% 55%'}, ${getCategoryAuraColor(currentProduct.category?.name)}, transparent 62%)`,
+            }}
+            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              opacity: isDark ? 0.9 : 0.65,
+            }}
+          />
+
+          {/* Readability scrim */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: isDark
+                ? 'linear-gradient(90deg, rgba(9, 12, 22, 0.35) 0%, rgba(9, 12, 22, 0.68) 55%, rgba(9, 12, 22, 0.82) 100%)'
+                : 'linear-gradient(90deg, rgba(255, 255, 255, 0.45) 0%, rgba(248, 250, 252, 0.78) 55%, rgba(244, 247, 251, 0.9) 100%)',
+            }}
+          />
+        </div>
+      )}
+
       <style>{`
         .fps-full-inner {
+          position: relative;
+          z-index: 1;
           width: 100%;
           max-width: 1560px;
           margin: 0 auto;
