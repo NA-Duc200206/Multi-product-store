@@ -356,7 +356,7 @@ const Shop = () => {
       setLoading(true);
       try {
         const [prodRes, catRes] = await Promise.all([
-          api.products.getAll({ limit: 100 }),
+          api.products.getAll({ limit: 1200 }),
           api.categories.getAll(),
         ]);
         if (!isMounted) return;

@@ -1,11 +1,36 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { ProductDetailSkeleton } from '../components/SkeletonLoader';
-import ScrollReveal from '../components/ScrollReveal';
-import { ShoppingCart, ChevronLeft, Minus, Plus, Star, MessageSquare, Trash2, Send, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
+import ProductCard from '../components/ProductCard';
+import {
+  formatVND,
+  translateCategoryName,
+  getSafeImageUrl,
+  handleImageError,
+} from '../utils/formatters';
+import {
+  ShoppingCart,
+  ChevronRight,
+  Minus,
+  Plus,
+  Star,
+  MessageSquare,
+  Trash2,
+  Send,
+  Check,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+} from 'lucide-react';
+
+const COMMITMENTS = [
+  { num: '01', text: 'Certified authentic product' },
+  { num: '02', text: '30-day transparent returns' },
+  { num: '03', text: 'Nationwide delivery with tracking' },
+];
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -19,6 +44,10 @@ const ProductDetail = () => {
   const [cartFeedback, setCartFeedback] = useState('');
   const addedTimerRef = useRef(null);
 
+  // Related & recently viewed products
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [recentlyViewed, setRecentlyViewed] = useState([]);
+
   // Reviews state
   const [reviews, setReviews] = useState([]);
   const [averageRating, setAverageRating] = useState(5.0);
@@ -27,41 +56,96 @@ const ProductDetail = () => {
   const [reviewComment, setReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewFeedback, setReviewFeedback] = useState(null);
-  
-  useEffect(() => {
-    return () => {
-      if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
-    };
-  }, []);
-  
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletingReviewId, setDeletingReviewId] = useState(null);
+
   // Selected variant configuration states
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
 
-  // Thumbnail selection
+  // Gallery state
   const [activeImage, setActiveImage] = useState('');
-  const [selectedThumb, setSelectedThumb] = useState(0);
 
   // Active tab state
-  const [activeTab, setActiveTab] = useState('reviews'); // 'description' | 'reviews'
+  const [activeTab, setActiveTab] = useState('reviews'); // 'reviews' | 'description'
+
+  useEffect(() => {
+    return () => {
+      if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    };
+  }, []);
 
   // Fetch product details
   useEffect(() => {
+    window.scrollTo(0, 0);
+    setQuantity(1);
+    setAddedToCart(false);
+    setCartFeedback('');
+    setReviewFeedback(null);
+    setConfirmDeleteId(null);
+    setRelatedProducts([]);
+
     const fetchProduct = async () => {
       setLoading(true);
       try {
         const res = await api.products.getById(id);
-        setProduct(res.product);
-        setActiveImage(res.product.image);
-        setSelectedThumb(0);
-        
-        // Auto-select first variant color/size if available
-        if (res.product.options?.colors?.length > 0) {
-          setSelectedColor(res.product.options.colors[0]);
+        const prod = res.product;
+        setProduct(prod);
+        setActiveImage(prod.image || '');
+
+        if (prod.options?.colors?.length > 0) {
+          setSelectedColor(prod.options.colors[0]);
+        } else {
+          setSelectedColor(null);
         }
-        if (res.product.options?.sizes?.length > 0) {
-          setSelectedSize(res.product.options.sizes[0]);
+        if (prod.options?.sizes?.length > 0) {
+          setSelectedSize(prod.options.sizes[0]);
+        } else {
+          setSelectedSize(null);
+        }
+
+        // Track & load recently viewed products
+        const currentId = prod._id || prod.id || id;
+        try {
+          const raw = localStorage.getItem('uconext_recently_viewed');
+          const parsed = raw ? JSON.parse(raw) : [];
+          const list = Array.isArray(parsed) ? parsed : [];
+          const previousOthers = list.filter((item) => (item._id || item.id) !== currentId);
+          setRecentlyViewed(previousOthers.slice(0, 4));
+
+          const snapshot = {
+            _id: currentId,
+            id: currentId,
+            name: prod.name,
+            price: prod.price,
+            originalPrice: prod.originalPrice,
+            image: prod.image,
+            stock: prod.stock,
+            rating: prod.rating,
+            category: prod.category,
+            options: prod.options,
+          };
+          localStorage.setItem(
+            'uconext_recently_viewed',
+            JSON.stringify([snapshot, ...previousOthers].slice(0, 8))
+          );
+        } catch {
+          // Ignore storage quota or JSON parse errors
+        }
+
+        const catId = prod.categoryId || prod.category?._id || prod.category?.id;
+        if (catId) {
+          try {
+            const relRes = await api.products.getAll({ categoryId: catId, limit: 5 });
+            const currentId = prod._id || prod.id || id;
+            const filtered = (relRes.products || [])
+              .filter((p) => (p._id || p.id) !== currentId)
+              .slice(0, 4);
+            setRelatedProducts(filtered);
+          } catch (relErr) {
+            console.error('Failed to load related products:', relErr.message);
+          }
         }
       } catch (err) {
         console.error('Failed to load product details:', err.message);
@@ -72,7 +156,7 @@ const ProductDetail = () => {
     };
 
     fetchProduct();
-  }, [id]);
+  }, [id, navigate]);
 
   const fetchReviews = async () => {
     try {
@@ -91,6 +175,19 @@ const ProductDetail = () => {
     }
   }, [id]);
 
+  // Unique gallery images (only show thumbnail strip if > 1 unique image)
+  const galleryImages = useMemo(() => {
+    if (!product) return [];
+    const list = [];
+    if (product.image) list.push(product.image);
+    if (Array.isArray(product.images)) {
+      product.images.forEach((img) => {
+        if (img && !list.includes(img)) list.push(img);
+      });
+    }
+    return list;
+  }, [product]);
+
   const handleSubmitReview = async (e) => {
     e.preventDefault();
     setReviewFeedback(null);
@@ -107,7 +204,7 @@ const ProductDetail = () => {
       await api.reviews.add({
         productId: id,
         rating: reviewRating,
-        comment: reviewComment.trim()
+        comment: reviewComment.trim(),
       });
       setReviewFeedback({ type: 'success', message: 'Thank you! Your review has been posted.' });
       setReviewComment('');
@@ -119,48 +216,35 @@ const ProductDetail = () => {
     }
   };
 
-  const handleDeleteReview = async (reviewId) => {
-    if (!window.confirm('Are you sure you want to delete this review?')) return;
+  const handleConfirmDeleteReview = async (reviewId) => {
     setReviewFeedback(null);
+    setDeletingReviewId(reviewId);
     try {
       await api.reviews.delete(reviewId);
+      setConfirmDeleteId(null);
       setReviewFeedback({ type: 'success', message: 'Review removed.' });
       fetchReviews();
     } catch (err) {
       setReviewFeedback({ type: 'error', message: err.message || 'Failed to delete review.' });
+    } finally {
+      setDeletingReviewId(null);
     }
   };
 
-  if (loading) {
-    return (
-      <div style={{ padding: '40px 5%' }}>
-        <ProductDetailSkeleton />
-      </div>
-    );
-  }
-
-  if (!product) return null;
-
-  const formattedPrice = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'VND',
-    minimumFractionDigits: 0
-  }).format(product.price);
-
   const handleQuantityChange = (type) => {
+    if (!product) return;
     if (type === 'dec' && quantity > 1) {
-      setQuantity(quantity - 1);
+      setQuantity((prev) => prev - 1);
     } else if (type === 'inc' && quantity < product.stock) {
-      setQuantity(quantity + 1);
+      setQuantity((prev) => prev + 1);
     }
   };
 
   const handleAddToCart = () => {
-    if (product.stock === 0) {
+    if (!product || product.stock === 0) {
       setCartFeedback('Product is currently out of stock.');
       return;
     }
-
     setCartFeedback('');
     addToCart(product, quantity, selectedColor, selectedSize);
     setAddedToCart(true);
@@ -168,184 +252,159 @@ const ProductDetail = () => {
     addedTimerRef.current = setTimeout(() => setAddedToCart(false), 1600);
   };
 
-  // Generate 4 mock image angles / variants based on main image
-  const thumbnails = [
-    product.image,
-    product.image,
-    product.image,
-    product.image
-  ];
+  const handleBuyNow = () => {
+    if (!product || product.stock === 0) {
+      setCartFeedback('Product is currently out of stock.');
+      return;
+    }
+    setCartFeedback('');
+    addToCart(product, quantity, selectedColor, selectedSize);
+    navigate('/cart');
+  };
+
+  if (loading) {
+    return (
+      <div className="pd-page">
+        <div className="pd-container">
+          <ProductDetailSkeleton />
+        </div>
+        <style>{pageStyles}</style>
+      </div>
+    );
+  }
+
+  if (!product) return null;
+
+  const categoryId = product.categoryId || product.category?._id || product.category?.id;
+  const categoryLabel = translateCategoryName(product.category?.name || 'Product');
+  const hasDiscount = Boolean(product.originalPrice && product.originalPrice > product.price);
 
   return (
-    <div style={{ padding: '40px 5%' }}>
-      {/* Breadcrumb Back Navigation */}
-      <Link to="/products" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'var(--text-secondary)', marginBottom: '32px', fontWeight: '600', transition: 'var(--transition-fast)' }} className="back-link">
-        <ChevronLeft size={16} /> Back to shop
-      </Link>
+    <div className="pd-page">
+      <div className="pd-container">
+        {/* Editorial Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="pd-breadcrumb">
+          <Link to="/" className="pd-breadcrumb-link">Home</Link>
+          <ChevronRight size={14} className="pd-breadcrumb-sep" />
+          <Link to="/products" className="pd-breadcrumb-link">Shop</Link>
+          {product.category?.name && (
+            <>
+              <ChevronRight size={14} className="pd-breadcrumb-sep" />
+              <Link
+                to={categoryId ? `/products?categoryId=${categoryId}` : '/products'}
+                className="pd-breadcrumb-link"
+              >
+                {categoryLabel}
+              </Link>
+            </>
+          )}
+          <ChevronRight size={14} className="pd-breadcrumb-sep" />
+          <span className="pd-breadcrumb-current">{product.name}</span>
+        </nav>
 
-      {/* Main Split Section: Desktop Left (Images), Right (Metadata & Actions) */}
-      <div className="product-split-container">
-        
-        {/* Left Side: Image Gallery */}
-        <ScrollReveal direction="left" duration={800} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Large Main Image */}
-          <div className="glass-card" style={{ padding: '16px', borderRadius: '20px', overflow: 'hidden' }}>
-            <div style={{
-              position: 'relative',
-              paddingTop: '100%', // 1:1 Aspect Ratio
-              overflow: 'hidden',
-              borderRadius: '12px',
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid var(--glass-border)'
-            }}>
-              <img 
-                src={activeImage || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=800'} 
-                alt={product.name} 
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  // Alternate angle presentation zooms
-                  transform: selectedThumb === 1 ? 'scale(1.3)' : selectedThumb === 2 ? 'scale(1.15) rotate(5deg)' : selectedThumb === 3 ? 'scale(1.2) translate(10px, -10px)' : 'scale(1)',
-                  transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}
+        {/* Main Split Layout */}
+        <div className="pd-split">
+          {/* Left: Clean Product Gallery */}
+          <div className="pd-gallery">
+            <div className="pd-main-image-wrap">
+              <img
+                src={getSafeImageUrl(activeImage || product.image)}
+                alt={product.name}
+                onError={handleImageError}
+                className="pd-main-image"
               />
             </div>
+
+            {galleryImages.length > 1 && (
+              <div className="pd-thumb-strip">
+                {galleryImages.map((imgUrl, idx) => {
+                  const isSelected = (activeImage || product.image) === imgUrl;
+                  return (
+                    <button
+                      key={imgUrl}
+                      type="button"
+                      onClick={() => setActiveImage(imgUrl)}
+                      className={`pd-thumb-btn ${isSelected ? 'active' : ''}`}
+                      aria-label={`View image ${idx + 1}`}
+                    >
+                      <img
+                        src={getSafeImageUrl(imgUrl)}
+                        alt={`${product.name} ${idx + 1}`}
+                        onError={handleImageError}
+                        className="pd-thumb-img"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Row of 4 Thumbnail preview boxes */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
-            {thumbnails.map((img, idx) => {
-              const isSelected = selectedThumb === idx;
-              return (
-                <button
-                  key={idx}
-                  onClick={() => { setSelectedThumb(idx); }}
-                  onMouseEnter={() => { setSelectedThumb(idx); }}
-                  style={{
-                    padding: '0',
-                    border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--glass-border)',
-                    borderRadius: '10px',
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                    background: 'var(--input-bg)',
-                    position: 'relative',
-                    paddingTop: '100%',
-                    boxShadow: isSelected ? 'var(--shadow-neon)' : 'none',
-                    transition: 'var(--transition-smooth)',
-                    transform: isSelected ? 'scale(1.05)' : 'scale(1)'
-                  }}
-                >
-                  <img 
-                    src={img || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=800'} 
-                    alt={`Thumbnail ${idx}`} 
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      opacity: isSelected ? 1 : 0.7,
-                      transform: idx === 1 ? 'scale(1.3)' : idx === 2 ? 'scale(1.15) rotate(5deg)' : idx === 3 ? 'scale(1.2) translate(10px, -10px)' : 'scale(1)',
-                    }}
-                  />
-                </button>
-              );
-            })}
-          </div>
-        </ScrollReveal>
-
-        {/* Right Side: Product Metadata & Actions */}
-        <ScrollReveal direction="right" duration={800}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            
-            {/* Header / Category / Title */}
+          {/* Right: Editorial Purchase Column */}
+          <div className="pd-info-col">
             <div>
-              <span className="badge badge-primary" style={{ marginBottom: '12px', fontSize: '11px' }}>
-                {product.category?.name || 'Product'}
-              </span>
-              <h1 style={{ fontSize: '32px', color: 'var(--text-primary)', marginBottom: '12px', lineHeight: '1.2' }}>
-                {product.name}
-              </h1>
+              <span className="pd-category-tag">{categoryLabel}</span>
+              <h1 className="pd-title">{product.name}</h1>
 
-              {/* Rating Summary Badge */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(245, 158, 11, 0.1)',
-                  border: '1px solid rgba(245, 158, 11, 0.2)',
-                  borderRadius: '100px',
-                  padding: '4px 12px',
-                }}>
+              <div className="pd-rating-row">
+                <div className="pd-rating-pill">
                   <Star size={14} fill="#f59e0b" color="#f59e0b" />
-                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#fbbf24' }}>
-                    {averageRating.toFixed(1)}
-                  </span>
+                  <span>{Number(averageRating).toFixed(1)}</span>
                 </div>
-                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  | &nbsp; {totalReviews} customer reviews
+                <span className="pd-review-count">
+                  {totalReviews} {totalReviews === 1 ? 'review' : 'reviews'}
+                </span>
+                <span className="pd-dot-sep">·</span>
+                <span
+                  className="pd-stock-badge"
+                  style={{ color: product.stock > 0 ? '#10b981' : '#ef4444' }}
+                >
+                  <span
+                    className="pd-stock-dot"
+                    style={{ background: product.stock > 0 ? '#10b981' : '#ef4444' }}
+                  />
+                  {product.stock > 0 ? `In Stock (${product.stock} units)` : 'Out of stock'}
                 </span>
               </div>
             </div>
 
-            {/* High Contrast Bold Price & Availability */}
-            <div style={{
-              background: 'var(--input-bg)',
-              border: '1px solid var(--glass-border)',
-              borderRadius: '12px',
-              padding: '16px 20px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <div>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Price</span>
-                <span style={{ fontSize: '28px', fontWeight: '800', color: 'var(--color-secondary)', letterSpacing: '-0.02em' }}>
-                  {formattedPrice}
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '600', color: product.stock > 0 ? '#10b981' : '#ef4444' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: product.stock > 0 ? '#10b981' : '#ef4444', display: 'inline-block' }} />
-                <span>{product.stock > 0 ? `In Stock (${product.stock} units)` : 'Out of stock'}</span>
+            {/* Price Box */}
+            <div className="pd-price-box">
+              <span className="pd-price-label">Price</span>
+              <div className="pd-price-values">
+                <span className="pd-price-current">{formatVND(product.price)}</span>
+                {hasDiscount && (
+                  <span className="pd-price-original">{formatVND(product.originalPrice)}</span>
+                )}
               </div>
             </div>
 
-            {/* Short Description */}
+            {/* Description */}
             <div>
-              <h4 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: '700' }}>Product Introduction</h4>
-              <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', fontSize: '14px', whiteSpace: 'pre-line' }}>
-                {product.description || 'Premium product exquisitely designed to meet the highest quality standards, providing a complete and satisfying user experience.'}
+              <h2 className="pd-section-label">Product Overview</h2>
+              <p className="pd-description">
+                {product.description ||
+                  'Premium product exquisitely designed to meet the highest quality standards, providing a complete and satisfying user experience.'}
               </p>
             </div>
 
-            {/* Variant Selector: Selection Buttons with Active Styling */}
+            {/* Variant Selectors */}
             {product.options && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Color Selection */}
-                {product.options.colors && product.options.colors.length > 0 && (
+              <div className="pd-variants">
+                {product.options.colors?.length > 0 && (
                   <div>
-                    <h4 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '10px', fontWeight: '700' }}>Colors</h4>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                      {product.options.colors.map(color => {
+                    <h3 className="pd-section-label">
+                      Color: <span className="pd-variant-selected">{selectedColor}</span>
+                    </h3>
+                    <div className="pd-variant-list">
+                      {product.options.colors.map((color) => {
                         const isSelected = selectedColor === color;
                         return (
                           <button
                             key={color}
+                            type="button"
                             onClick={() => setSelectedColor(color)}
-                            className={`btn ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
-                            style={{
-                              padding: '8px 18px',
-                              borderRadius: '8px',
-                              fontSize: '13px',
-                              boxShadow: isSelected ? 'var(--shadow-neon)' : 'none',
-                              border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--glass-border)'
-                            }}
+                            className={`pd-variant-btn ${isSelected ? 'active' : ''}`}
                           >
                             {color}
                           </button>
@@ -355,25 +414,20 @@ const ProductDetail = () => {
                   </div>
                 )}
 
-                {/* Size Selection */}
-                {product.options.sizes && product.options.sizes.length > 0 && (
+                {product.options.sizes?.length > 0 && (
                   <div>
-                    <h4 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '10px', fontWeight: '700' }}>Sizes</h4>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                      {product.options.sizes.map(size => {
+                    <h3 className="pd-section-label">
+                      Size: <span className="pd-variant-selected">{selectedSize}</span>
+                    </h3>
+                    <div className="pd-variant-list">
+                      {product.options.sizes.map((size) => {
                         const isSelected = selectedSize === size;
                         return (
                           <button
                             key={size}
+                            type="button"
                             onClick={() => setSelectedSize(size)}
-                            className={`btn ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
-                            style={{
-                              padding: '8px 18px',
-                              borderRadius: '8px',
-                              fontSize: '13px',
-                              boxShadow: isSelected ? 'var(--shadow-neon)' : 'none',
-                              border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--glass-border)'
-                            }}
+                            className={`pd-variant-btn ${isSelected ? 'active' : ''}`}
                           >
                             {size}
                           </button>
@@ -385,405 +439,1203 @@ const ProductDetail = () => {
               </div>
             )}
 
-            {/* Quantity Modifier & Add to Cart full-width Row */}
+            {/* Quantity & Purchase Actions */}
             {product.stock > 0 ? (
-              <>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '12px' }}>
-                {/* Quantity Modifier */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: 'var(--input-bg)',
-                  border: '1px solid var(--glass-border)',
-                  borderRadius: '10px',
-                  padding: '4px',
-                  height: '48px'
-                }}>
-                  <button 
-                    onClick={() => handleQuantityChange('dec')}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              <div className="pd-actions-block">
+                <div className="pd-actions-row">
+                  <div className="pd-qty-box">
+                    <button
+                      type="button"
+                      onClick={() => handleQuantityChange('dec')}
+                      disabled={quantity <= 1}
+                      className="pd-qty-btn"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <span className="pd-qty-val">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleQuantityChange('inc')}
+                      disabled={quantity >= product.stock}
+                      className="pd-qty-btn"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    className={`pd-add-btn ${addedToCart ? 'added' : ''}`}
                   >
-                    <Minus size={16} />
+                    {addedToCart ? (
+                      <>
+                        <Check size={18} strokeWidth={2.5} />
+                        <span>Added to Cart</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart size={18} />
+                        <span>Add to Cart</span>
+                      </>
+                    )}
                   </button>
-                  <span style={{ minWidth: '40px', textAlign: 'center', fontWeight: '700', fontSize: '15px' }}>{quantity}</span>
-                  <button 
-                    onClick={() => handleQuantityChange('inc')}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    className="pd-buy-btn"
                   >
-                    <Plus size={16} />
+                    <span>Buy Now</span>
+                    <ArrowRight size={17} />
                   </button>
                 </div>
 
-                {/* Add to Cart Button */}
-                <button 
-                  onClick={handleAddToCart}
-                  className="btn btn-primary add-to-cart-btn"
-                  style={{
-                    padding: '14px 28px',
-                    height: '48px',
-                    flex: 1,
-                    fontSize: '15px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    background: addedToCart ? '#10b981' : undefined,
-                    borderColor: addedToCart ? '#10b981' : undefined,
-                    color: addedToCart ? '#ffffff' : undefined,
-                    transition: 'all 0.25s ease'
-                  }}
-                >
-                  {addedToCart ? (
-                    <>
-                      <Check size={19} strokeWidth={2.5} /> Added to Cart
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart size={18} /> Add to Cart
-                    </>
-                  )}
-                </button>
+                {cartFeedback && (
+                  <div role="alert" className="pd-inline-error">
+                    <AlertCircle size={15} />
+                    <span>{cartFeedback}</span>
+                  </div>
+                )}
               </div>
-              {cartFeedback && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', fontSize: '13px', color: '#ef4444' }}>
-                  <AlertCircle size={15} />
-                  <span>{cartFeedback}</span>
-                </div>
-              )}
-              </>
             ) : (
-              <div className="glass-card" style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: '600' }}>
+              <div className="pd-out-of-stock-box">
                 Product temporarily out of stock
               </div>
             )}
 
-            {/* Trust and delivery notes without tacky generic icons */}
-            <div style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '20px',
-              marginTop: '12px',
-              borderTop: '1px solid var(--glass-border)',
-              paddingTop: '16px',
-              fontSize: '12px',
-              color: 'var(--text-muted)',
-              lineHeight: '1.5'
-            }}>
-              <span>• Certified authentic product</span>
-              <span>• 30-day transparent returns</span>
-              <span>• Nationwide delivery with tracking</span>
+            {/* Numbered Commitments 01-03 */}
+            <div className="pd-commitments">
+              {COMMITMENTS.map((item) => (
+                <div key={item.num} className="pd-commitment-item">
+                  <span className="pd-commitment-num">{item.num}</span>
+                  <span className="pd-commitment-text">{item.text}</span>
+                </div>
+              ))}
             </div>
-
           </div>
-        </ScrollReveal>
-      </div>
-
-      {/* Below Split Section: Tabbed Layout (Info & Reviews) */}
-      <section style={{ marginTop: '60px' }}>
-        {/* Tab Headers */}
-        <div style={{ display: 'flex', gap: '30px', borderBottom: '1px solid var(--glass-border)', marginBottom: '30px' }}>
-          <button 
-            onClick={() => setActiveTab('reviews')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: activeTab === 'reviews' ? 'var(--color-primary)' : 'var(--text-secondary)',
-              fontWeight: '700',
-              fontSize: '16px',
-              paddingBottom: '12px',
-              cursor: 'pointer',
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-          >
-            <MessageSquare size={16} /> Customer Reviews ({totalReviews})
-            {activeTab === 'reviews' && (
-              <div style={{ position: 'absolute', bottom: '-1px', left: 0, right: 0, height: '2px', background: 'var(--color-primary)' }}></div>
-            )}
-          </button>
-          
-          <button 
-            onClick={() => setActiveTab('description')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: activeTab === 'description' ? 'var(--color-primary)' : 'var(--text-secondary)',
-              fontWeight: '700',
-              fontSize: '16px',
-              paddingBottom: '12px',
-              cursor: 'pointer',
-              position: 'relative'
-            }}
-          >
-            Details
-            {activeTab === 'description' && (
-              <div style={{ position: 'absolute', bottom: '-1px', left: 0, right: 0, height: '2px', background: 'var(--color-primary)' }}></div>
-            )}
-          </button>
         </div>
 
-        {/* Tab Content Panels */}
-        <div className="glass-card" style={{ padding: '32px' }}>
-          {activeTab === 'reviews' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-              
-              {/* Write Review Form */}
-              <div style={{
-                background: 'var(--input-bg)',
-                borderRadius: '16px',
-                padding: '24px',
-                border: '1px solid var(--glass-border)'
-              }}>
-                <h4 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '16px' }}>
-                  Write a Customer Review
-                </h4>
-                {reviewFeedback && (
-                  <div
-                    role="status"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '10px 14px',
-                      borderRadius: '10px',
-                      marginBottom: '16px',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      backgroundColor: reviewFeedback.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                      border: `1px solid ${reviewFeedback.type === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                      color: reviewFeedback.type === 'success' ? '#10b981' : '#ef4444'
-                    }}
-                  >
-                    {reviewFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                    <span>{reviewFeedback.message}</span>
-                  </div>
-                )}
-                {user ? (
-                  <form onSubmit={handleSubmitReview} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                        Your Rating
-                      </label>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            type="button"
-                            key={star}
-                            onClick={() => setReviewRating(star)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '2px',
-                              display: 'flex',
-                              alignItems: 'center'
-                            }}
-                          >
-                            <Star
-                              size={22}
-                              fill={star <= reviewRating ? '#f59e0b' : 'none'}
-                              color={star <= reviewRating ? '#f59e0b' : 'var(--text-muted)'}
-                            />
-                          </button>
-                        ))}
-                        <span style={{ fontSize: '13px', fontWeight: '600', color: '#fbbf24', marginLeft: '6px' }}>
-                          {reviewRating} / 5 Stars
-                        </span>
+        {/* Tabbed Section: Reviews & Details */}
+        <section className="pd-tabs-section">
+          <div className="pd-tabs-header">
+            <button
+              type="button"
+              onClick={() => setActiveTab('reviews')}
+              className={`pd-tab-btn ${activeTab === 'reviews' ? 'active' : ''}`}
+            >
+              <MessageSquare size={16} />
+              <span>Customer Reviews ({totalReviews})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('description')}
+              className={`pd-tab-btn ${activeTab === 'description' ? 'active' : ''}`}
+            >
+              <span>Details</span>
+            </button>
+          </div>
+
+          <div className="pd-tab-panel">
+            {activeTab === 'reviews' ? (
+              <div className="pd-reviews-wrap">
+                {/* Write Review Form */}
+                <div className="pd-review-form-box">
+                  <h3 className="pd-review-form-title">Write a Customer Review</h3>
+
+                  {reviewFeedback && (
+                    <div
+                      role="status"
+                      className={`pd-feedback-banner ${reviewFeedback.type === 'success' ? 'success' : 'error'}`}
+                    >
+                      {reviewFeedback.type === 'success' ? (
+                        <CheckCircle2 size={16} />
+                      ) : (
+                        <AlertCircle size={16} />
+                      )}
+                      <span>{reviewFeedback.message}</span>
+                    </div>
+                  )}
+
+                  {user ? (
+                    <form onSubmit={handleSubmitReview} className="pd-review-form">
+                      <div>
+                        <label className="pd-form-label">Your Rating</label>
+                        <div className="pd-star-picker">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              type="button"
+                              key={star}
+                              onClick={() => setReviewRating(star)}
+                              className="pd-star-btn"
+                              aria-label={`Rate ${star} stars`}
+                            >
+                              <Star
+                                size={22}
+                                fill={star <= reviewRating ? '#f59e0b' : 'none'}
+                                color={star <= reviewRating ? '#f59e0b' : 'var(--text-muted)'}
+                              />
+                            </button>
+                          ))}
+                          <span className="pd-star-label">{reviewRating} / 5 Stars</span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                        Your Feedback
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={reviewComment}
-                        onChange={(e) => setReviewComment(e.target.value)}
-                        placeholder="Share your detailed thoughts, packaging quality, product finish..."
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px',
-                          borderRadius: '10px',
-                          border: '1px solid var(--glass-border)',
-                          background: 'var(--bg-secondary)',
-                          color: 'var(--text-primary)',
-                          fontSize: '14px',
-                          resize: 'vertical',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
+                      <div>
+                        <label className="pd-form-label">Your Feedback</label>
+                        <textarea
+                          rows={3}
+                          value={reviewComment}
+                          onChange={(e) => setReviewComment(e.target.value)}
+                          placeholder="Share your detailed thoughts, packaging quality, product finish..."
+                          className="pd-textarea"
+                        />
+                      </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div className="pd-form-submit-row">
+                        <button
+                          type="submit"
+                          disabled={submittingReview}
+                          className="pd-submit-review-btn"
+                        >
+                          <Send size={15} />
+                          <span>{submittingReview ? 'Submitting...' : 'Post Review'}</span>
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="pd-signin-prompt">
+                      <span>
+                        Please sign in to your account to submit a review and rating for this product.
+                      </span>
                       <button
-                        type="submit"
-                        disabled={submittingReview}
-                        className="btn btn-primary"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '10px 24px',
-                          fontSize: '14px',
-                          fontWeight: '600',
-                          borderRadius: '10px'
-                        }}
+                        type="button"
+                        onClick={() => navigate('/login')}
+                        className="pd-signin-btn"
                       >
-                        <Send size={15} />
-                        {submittingReview ? 'Submitting...' : 'Post Review'}
+                        Sign In Now
                       </button>
                     </div>
-                  </form>
+                  )}
+                </div>
+
+                {/* Reviews List */}
+                {reviews.length === 0 ? (
+                  <div className="pd-empty-reviews">
+                    <MessageSquare size={36} style={{ margin: '0 auto 12px auto', opacity: 0.45 }} />
+                    <p style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                      No reviews yet for this product.
+                    </p>
+                    <p style={{ fontSize: '13px', marginTop: '4px' }}>
+                      Be the first customer to share your thoughts!
+                    </p>
+                  </div>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-                      Please sign in to your account to submit a review and rating for this product.
-                    </span>
-                    <button
-                      onClick={() => navigate('/login')}
-                      className="btn btn-primary"
-                      style={{ padding: '8px 20px', fontSize: '13px', borderRadius: '8px' }}
-                    >
-                      Sign In Now
-                    </button>
+                  <div className="pd-review-list">
+                    {reviews.map((rev) => {
+                      const revId = rev.id || rev._id;
+                      const isAuthorOrAdmin =
+                        user &&
+                        (user.id === rev.userId ||
+                          user._id === rev.userId ||
+                          user.id === rev.user?._id ||
+                          user.role === 'admin');
+                      const isConfirming = confirmDeleteId === revId;
+
+                      return (
+                        <div key={revId} className="pd-review-item">
+                          <div className="pd-review-top">
+                            <div className="pd-review-author">
+                              <div className="pd-author-avatar">
+                                {(rev.user?.name || 'C').charAt(0).toUpperCase()}
+                              </div>
+                              <span className="pd-author-name">
+                                {rev.user?.name || 'Verified Customer'}
+                              </span>
+                            </div>
+
+                            <div className="pd-review-meta">
+                              <span className="pd-review-date">
+                                {rev.createdAt
+                                  ? new Date(rev.createdAt).toLocaleDateString('vi-VN')
+                                  : 'Recently'}
+                              </span>
+
+                              {isAuthorOrAdmin && (
+                                isConfirming ? (
+                                  <div className="pd-inline-confirm">
+                                    <button
+                                      type="button"
+                                      disabled={deletingReviewId === revId}
+                                      onClick={() => handleConfirmDeleteReview(revId)}
+                                      className="pd-confirm-del-btn"
+                                    >
+                                      {deletingReviewId === revId ? 'Deleting...' : 'Confirm'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setConfirmDeleteId(null)}
+                                      className="pd-cancel-del-btn"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmDeleteId(revId)}
+                                    title="Delete review"
+                                    className="pd-trash-btn"
+                                    aria-label="Delete review"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="pd-review-stars">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star
+                                key={i}
+                                size={13}
+                                fill={i < rev.rating ? '#f59e0b' : 'none'}
+                                color={i < rev.rating ? '#f59e0b' : 'var(--text-muted)'}
+                              />
+                            ))}
+                          </div>
+
+                          <p className="pd-review-comment">{rev.comment}</p>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
+            ) : (
+              <div>
+                <h3 className="pd-details-heading">Technical Specifications & Care</h3>
+                <ul className="pd-details-list">
+                  <li>Brand: UCONEXT Official</li>
+                  <li>Origin: Vietnam / Genuine imported materials</li>
+                  <li>Storage: Store in a cool, dry place, avoid direct sunlight</li>
+                  <li>Warranty / Expiry: Refer to product packaging</li>
+                </ul>
+              </div>
+            )}
+          </div>
+        </section>
 
-              {/* Reviews List */}
-              {reviews.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
-                  <MessageSquare size={36} style={{ margin: '0 auto 12px auto', opacity: 0.5 }} />
-                  <p style={{ fontSize: '15px', fontWeight: '500' }}>No reviews yet for this product.</p>
-                  <p style={{ fontSize: '13px', marginTop: '4px' }}>Be the first customer to share your thoughts!</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {reviews.map((rev) => {
-                    const isAuthorOrAdmin = user && (user.id === rev.userId || user._id === rev.userId || user.id === rev.user?._id || user.role === 'admin');
-                    return (
-                      <div 
-                        key={rev.id || rev._id} 
-                        style={{
-                          borderBottom: '1px solid var(--glass-border)',
-                          paddingBottom: '20px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '8px'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '50%',
-                              background: 'var(--color-primary)',
-                              color: '#fff',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: '700',
-                              fontSize: '13px'
-                            }}>
-                              {(rev.user?.name || 'C').charAt(0).toUpperCase()}
-                            </div>
-                            <span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '15px' }}>
-                              {rev.user?.name || 'Verified Customer'}
-                            </span>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                              {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString('vi-VN') : 'Recently'}
-                            </span>
-                            {isAuthorOrAdmin && (
-                              <button
-                                onClick={() => handleDeleteReview(rev.id || rev._id)}
-                                title="Delete review"
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#ef4444',
-                                  cursor: 'pointer',
-                                  padding: '4px',
-                                  display: 'flex',
-                                  alignItems: 'center'
-                                }}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Review Stars */}
-                        <div style={{ display: 'flex', gap: '2px', marginTop: '2px' }}>
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star 
-                              key={i} 
-                              size={13} 
-                              fill={i < rev.rating ? '#f59e0b' : 'none'} 
-                              color={i < rev.rating ? '#f59e0b' : 'var(--text-muted)'} 
-                            />
-                          ))}
-                        </div>
-
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginTop: '4px' }}>
-                          {rev.comment}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+        {/* Related Products */}
+        {relatedProducts.length > 0 && (
+          <section className="pd-related-section">
+            <div className="pd-related-header">
+              <div>
+                <span className="pd-related-eyebrow">Curated For You</span>
+                <h2 className="pd-related-title">Related Products</h2>
+              </div>
+              <Link
+                to={categoryId ? `/products?categoryId=${categoryId}` : '/products'}
+                className="pd-related-view-all"
+              >
+                <span>View All</span>
+                <ArrowRight size={15} />
+              </Link>
             </div>
-          ) : (
-            <div>
-              <h3 style={{ fontSize: '18px', color: 'var(--text-primary)', marginBottom: '16px' }}>Technical Specifications, Care Instructions</h3>
-              <ul style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.8', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <li>Brand: UCONEXT Official</li>
-                <li>Origin: Vietnam / Genuine imported materials</li>
-                <li>Storage: Store in a cool, dry place, avoid direct sunlight</li>
-                <li>Warranty / Expiry: Refer to product packaging</li>
-              </ul>
+
+            <div className="pd-related-grid">
+              {relatedProducts.map((rel) => (
+                <ProductCard key={rel._id || rel.id} product={rel} />
+              ))}
             </div>
-          )}
-        </div>
-      </section>
+          </section>
+        )}
 
-      <style>{`
-        .product-split-container {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 48px;
-          align-items: flex-start;
-        }
+        {/* Recently Viewed */}
+        {recentlyViewed.length > 0 && (
+          <section className="pd-related-section">
+            <div className="pd-related-header">
+              <div>
+                <span className="pd-related-eyebrow">Your History</span>
+                <h2 className="pd-related-title">Recently Viewed</h2>
+              </div>
+            </div>
 
-        .back-link:hover {
-          color: var(--text-primary) !important;
-          transform: translateX(-4px);
-        }
+            <div className="pd-related-grid">
+              {recentlyViewed.map((item) => (
+                <ProductCard key={item._id || item.id} product={item} />
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
 
-        .add-to-cart-btn:hover {
-          background: linear-gradient(135deg, var(--color-secondary), var(--color-primary)) !important;
-          box-shadow: 0 6px 20px var(--color-secondary-glow), 0 0 10px var(--color-primary-glow) !important;
-          transform: translateY(-2px);
-        }
-
-        @media (max-width: 900px) {
-          .product-split-container {
-            grid-template-columns: 1fr;
-            gap: 32px;
-          }
-        }
-      `}</style>
+      <style>{pageStyles}</style>
     </div>
   );
 };
+
+const pageStyles = `
+  .pd-page {
+    width: 100%;
+    min-height: 85vh;
+    background: var(--bg-primary);
+  }
+
+  .pd-container {
+    width: 100%;
+    max-width: 1560px;
+    margin: 0 auto;
+    padding: 28px 48px 88px 48px;
+  }
+
+  .pd-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 28px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .pd-breadcrumb-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.15s ease;
+  }
+
+  .pd-breadcrumb-link:hover {
+    color: var(--text-primary);
+  }
+
+  .pd-breadcrumb-sep {
+    opacity: 0.55;
+    flex-shrink: 0;
+  }
+
+  .pd-breadcrumb-current {
+    color: var(--text-primary);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 340px;
+  }
+
+  .pd-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    align-items: flex-start;
+  }
+
+  /* Gallery */
+  .pd-gallery {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .pd-main-image-wrap {
+    position: relative;
+    padding-top: 100%;
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+  }
+
+  .pd-main-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .pd-thumb-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .pd-thumb-btn {
+    position: relative;
+    padding-top: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+    transition: border-color 0.2s ease;
+  }
+
+  .pd-thumb-btn.active {
+    border: 2px solid #2454F4;
+  }
+
+  .pd-thumb-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Info Column */
+  .pd-info-col {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .pd-category-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #2454F4;
+    background: rgba(36, 84, 244, 0.1);
+    border: 1px solid rgba(36, 84, 244, 0.22);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+
+  .pd-title {
+    font-size: clamp(26px, 3vw, 36px);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    color: var(--text-primary);
+    margin: 0 0 14px 0;
+  }
+
+  .pd-rating-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 13px;
+  }
+
+  .pd-rating-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    color: #f59e0b;
+    font-weight: 700;
+  }
+
+  .pd-review-count {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .pd-dot-sep {
+    color: var(--text-muted);
+  }
+
+  .pd-stock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+  }
+
+  .pd-stock-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .pd-price-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 16px 20px;
+  }
+
+  .pd-price-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .pd-price-values {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .pd-price-current {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  .pd-price-original {
+    font-size: 15px;
+    color: var(--text-muted);
+    text-decoration: line-through;
+  }
+
+  .pd-section-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: 0 0 8px 0;
+  }
+
+  .pd-variant-selected {
+    color: var(--text-primary);
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  .pd-description {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.65;
+    white-space: pre-line;
+    margin: 0;
+  }
+
+  .pd-variants {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .pd-variant-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .pd-variant-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--glass-border);
+    transition: all 0.15s ease;
+  }
+
+  .pd-variant-btn:hover {
+    border-color: #2454F4;
+    color: var(--text-primary);
+  }
+
+  .pd-variant-btn.active {
+    background: #2454F4;
+    border-color: #2454F4;
+    color: #ffffff;
+  }
+
+  /* Actions */
+  .pd-actions-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .pd-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .pd-qty-box {
+    display: inline-flex;
+    align-items: center;
+    height: 48px;
+    padding: 0 4px;
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+  }
+
+  .pd-qty-btn {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: 6px;
+  }
+
+  .pd-qty-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .pd-qty-val {
+    min-width: 36px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text-primary);
+  }
+
+  .pd-add-btn {
+    flex: 1;
+    min-width: 160px;
+    height: 48px;
+    padding: 0 22px;
+    border-radius: 10px;
+    border: 1px solid #2454F4;
+    background: #2454F4;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .pd-add-btn:hover {
+    background: #1b3ec8;
+    border-color: #1b3ec8;
+  }
+
+  .pd-add-btn.added {
+    background: #10b981;
+    border-color: #10b981;
+  }
+
+  .pd-buy-btn {
+    height: 48px;
+    padding: 0 22px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .pd-buy-btn:hover {
+    border-color: #2454F4;
+    color: #2454F4;
+  }
+
+  .pd-inline-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #ef4444;
+  }
+
+  .pd-out-of-stock-box {
+    padding: 16px;
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    text-align: center;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  /* Commitments */
+  .pd-commitments {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding-top: 20px;
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .pd-commitment-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .pd-commitment-num {
+    font-size: 11px;
+    font-weight: 800;
+    color: #2454F4;
+    letter-spacing: 0.04em;
+  }
+
+  .pd-commitment-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  /* Tabs */
+  .pd-tabs-section {
+    margin-top: 64px;
+  }
+
+  .pd-tabs-header {
+    display: flex;
+    gap: 32px;
+    border-bottom: 1px solid var(--glass-border);
+    margin-bottom: 24px;
+  }
+
+  .pd-tab-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-size: 15px;
+    padding: 0 0 14px 0;
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.15s ease;
+  }
+
+  .pd-tab-btn.active {
+    color: var(--text-primary);
+  }
+
+  .pd-tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #2454F4;
+  }
+
+  .pd-tab-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 28px;
+  }
+
+  .pd-reviews-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .pd-review-form-box {
+    background: var(--bg-primary);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 22px;
+  }
+
+  .pd-review-form-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 14px 0;
+  }
+
+  .pd-feedback-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .pd-feedback-banner.success {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #10b981;
+  }
+
+  .pd-feedback-banner.error {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+  }
+
+  .pd-review-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .pd-form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .pd-star-picker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pd-star-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .pd-star-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #f59e0b;
+    margin-left: 6px;
+  }
+
+  .pd-textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 14px;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+
+  .pd-textarea:focus {
+    border-color: #2454F4;
+  }
+
+  .pd-form-submit-row {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .pd-submit-review-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    background: #2454F4;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .pd-submit-review-btn:hover:not(:disabled) {
+    background: #1b3ec8;
+  }
+
+  .pd-submit-review-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .pd-signin-prompt {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .pd-signin-btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    background: #2454F4;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .pd-empty-reviews {
+    text-align: center;
+    padding: 36px 20px;
+    color: var(--text-muted);
+  }
+
+  .pd-review-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .pd-review-item {
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pd-review-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .pd-review-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .pd-review-author {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .pd-author-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #2454F4;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .pd-author-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 14px;
+  }
+
+  .pd-review-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .pd-review-date {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .pd-trash-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 6px;
+  }
+
+  .pd-trash-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  .pd-inline-confirm {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pd-confirm-del-btn {
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: none;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .pd-cancel-del-btn {
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .pd-review-stars {
+    display: flex;
+    gap: 2px;
+  }
+
+  .pd-review-comment {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 2px 0 0 0;
+  }
+
+  .pd-details-heading {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 14px 0;
+  }
+
+  .pd-details-list {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.8;
+    padding-left: 20px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* Related Products */
+  .pd-related-section {
+    margin-top: 72px;
+  }
+
+  .pd-related-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .pd-related-eyebrow {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #2454F4;
+    margin-bottom: 4px;
+  }
+
+  .pd-related-title {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .pd-related-view-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .pd-related-view-all:hover {
+    color: #2454F4;
+  }
+
+  .pd-related-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  @media (max-width: 1024px) {
+    .pd-container {
+      padding: 24px 28px 64px 28px;
+    }
+
+    .pd-split {
+      gap: 36px;
+    }
+
+    .pd-related-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 820px) {
+    .pd-split {
+      grid-template-columns: 1fr;
+      gap: 28px;
+    }
+
+    .pd-commitments {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .pd-container {
+      padding: 20px 16px 56px 16px;
+    }
+
+    .pd-tab-panel {
+      padding: 18px;
+    }
+
+    .pd-related-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+`;
 
 export default ProductDetail;

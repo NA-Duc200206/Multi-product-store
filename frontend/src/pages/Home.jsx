@@ -4,10 +4,12 @@ import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 import { useCart } from '../context/CartContext';
 import FeaturedProductShowcase from '../components/FeaturedProductShowcase';
+import TrendingSpotlight from '../components/TrendingSpotlight';
 import { ProductListSkeleton } from '../components/SkeletonLoader';
 import ScrollReveal from '../components/ScrollReveal';
 import {
   ArrowRight,
+  ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
   ShoppingCart,
@@ -51,8 +53,8 @@ const CategoryTile = ({ cat }) => {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-end',
-        aspectRatio: '4 / 5',
-        minHeight: '240px',
+        aspectRatio: '4 / 3',
+        minHeight: '160px',
         borderRadius: '14px',
         overflow: 'hidden',
         textDecoration: 'none',
@@ -223,7 +225,59 @@ const HomeProductCard = ({ product }) => {
             -{discountPercent}%
           </span>
         )}
+        {product.stock === 0 && (
+          <span
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              background: 'rgba(15, 23, 42, 0.85)',
+              color: '#f87171',
+              fontSize: '10.5px',
+              fontWeight: '700',
+              padding: '3px 8px',
+              borderRadius: '5px',
+            }}
+          >
+            Out of Stock
+          </span>
+        )}
+        <span
+          style={{
+            position: 'absolute',
+            left: '10px',
+            bottom: '10px',
+            padding: '5px 10px',
+            borderRadius: '7px',
+            background: 'rgba(11, 19, 43, 0.8)',
+            backdropFilter: 'blur(6px)',
+            color: '#ffffff',
+            fontSize: '11px',
+            fontWeight: '600',
+            opacity: isHovered ? 1 : 0,
+            transform: isHovered ? 'translateY(0)' : 'translateY(6px)',
+            transition: 'opacity 0.2s ease, transform 0.2s ease',
+            pointerEvents: 'none',
+          }}
+        >
+          View Details
+        </span>
       </div>
+
+      {product.category?.name && (
+        <span
+          style={{
+            fontSize: '10.5px',
+            fontWeight: '700',
+            letterSpacing: '0.07em',
+            textTransform: 'uppercase',
+            color: '#2454F4',
+            marginBottom: '4px',
+          }}
+        >
+          {translateCategoryName(product.category.name)}
+        </span>
+      )}
 
       <h3
         style={{
@@ -383,7 +437,7 @@ const Home = () => {
       try {
         const [catRes, prodRes] = await Promise.all([
           api.categories.getAll(),
-          api.products.getAll({ limit: 48 }),
+          api.products.getAll({ limit: 160 }),
         ]);
         setCategories(catRes.categories || []);
         setProducts(prodRes.products || []);
@@ -396,7 +450,7 @@ const Home = () => {
     fetchData();
   }, []);
 
-  // Featured products for the top animated showcase (12 diverse items interleaved across categories)
+  // Featured products for the top animated showcase (12 diverse items with unique images)
   const featuredProducts = useMemo(() => {
     if (!products.length) return [];
     const sorted = [...products].sort(
@@ -409,13 +463,19 @@ const Home = () => {
       buckets.get(catKey).push(p);
     });
     const interleaved = [];
+    const usedImages = new Set();
     const lists = Array.from(buckets.values());
     let round = 0;
     while (interleaved.length < 12) {
       let addedInRound = false;
       for (const list of lists) {
         if (round < list.length && interleaved.length < 12) {
-          interleaved.push(list[round]);
+          const candidate = list[round];
+          const imgKey = candidate.image || String(candidate._id || candidate.id);
+          if (!usedImages.has(imgKey)) {
+            usedImages.add(imgKey);
+            interleaved.push(candidate);
+          }
           addedInRound = true;
         }
       }
@@ -425,12 +485,46 @@ const Home = () => {
     return interleaved;
   }, [products]);
 
-  // Trending products collection (8 items)
+  // Trending products collection (8 diverse items with unique images, not in featuredProducts)
   const trendingProducts = useMemo(() => {
-    return products.slice(0, 8);
-  }, [products]);
+    if (!products.length) return [];
+    const featuredIds = new Set(featuredProducts.map((p) => String(p._id || p.id)));
+    const usedImages = new Set(featuredProducts.map((p) => p.image).filter(Boolean));
+    const pool = products.filter(
+      (p) => !featuredIds.has(String(p._id || p.id)) && (!p.image || !usedImages.has(p.image))
+    );
+    const source = pool.length >= 8 ? pool : products.filter((p) => !featuredIds.has(String(p._id || p.id)));
 
-  // Filtered & sorted catalog products
+    const buckets = new Map();
+    source.forEach((p) => {
+      const catKey = String(p.categoryId?._id || p.categoryId || p.category?.name || 'other');
+      if (!buckets.has(catKey)) buckets.set(catKey, []);
+      buckets.get(catKey).push(p);
+    });
+    const result = [];
+    const trendingImages = new Set();
+    const lists = Array.from(buckets.values());
+    let round = 0;
+    while (result.length < 8) {
+      let added = false;
+      for (const list of lists) {
+        if (round < list.length && result.length < 8) {
+          const candidate = list[round];
+          const imgKey = candidate.image || String(candidate._id || candidate.id);
+          if (!trendingImages.has(imgKey) || pool.length < 8) {
+            trendingImages.add(imgKey);
+            result.push(candidate);
+          }
+          added = true;
+        }
+      }
+      if (!added) break;
+      round++;
+    }
+    return result;
+  }, [products, featuredProducts]);
+
+  // Filtered & sorted catalog products (prioritizing unseen items & unique images on default view)
   const catalogProducts = useMemo(() => {
     const filtered = products.filter((p) => {
       if (selectedCategory === 'all') return true;
@@ -447,26 +541,138 @@ const Home = () => {
       sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     } else if (sortBy === 'newest') {
       sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    } else if (selectedCategory === 'all') {
+      const usedIds = new Set([
+        ...featuredProducts.map((p) => String(p._id || p.id)),
+        ...trendingProducts.map((p) => String(p._id || p.id)),
+      ]);
+      const seenImages = new Set([
+        ...featuredProducts.map((p) => p.image).filter(Boolean),
+        ...trendingProducts.map((p) => p.image).filter(Boolean),
+      ]);
+      const distinctFresh = [];
+      const fallbackRest = [];
+      sorted.forEach((p) => {
+        const pid = String(p._id || p.id);
+        if (!usedIds.has(pid) && (!p.image || !seenImages.has(p.image))) {
+          if (p.image) seenImages.add(p.image);
+          distinctFresh.push(p);
+        } else {
+          fallbackRest.push(p);
+        }
+      });
+      return [...distinctFresh, ...fallbackRest];
     }
     return sorted;
-  }, [products, selectedCategory, sortBy]);
+  }, [products, selectedCategory, sortBy, featuredProducts, trendingProducts]);
+
+  const catTrackRef = useRef(null);
+  const [canScrollCatLeft, setCanScrollCatLeft] = useState(false);
+  const [canScrollCatRight, setCanScrollCatRight] = useState(true);
 
   const fallbackCategories = [
-    { name: 'Electronics', description: 'High-fidelity audio, smart gadgets and high-performance computing' },
-    { name: 'Fashion', description: 'Contemporary wardrobe staples and minimalist seasonal collections' },
-    { name: 'Accessories', description: 'Prestige timepieces, handcrafted jewelry and designer eyewear' },
-    { name: 'Home & Living', description: 'Modern living essentials engineered for aesthetic comfort' },
-    { name: 'Cosmetics', description: 'Dermatological skincare, refined fragrances and authenticated cosmetics' },
+    { name: 'Laptops, Tablets', description: 'Ultrabooks, tablets and e-readers built for portable power' },
+    { name: 'Monitors, Desk', description: 'Studio displays, mechanical keyboards and precision mice' },
+    { name: 'Audio', description: 'Wireless headphones, earbuds, microphones and speakers' },
+    { name: 'Charging, Storage', description: 'GaN chargers, power banks, portable SSDs and action cameras' },
+    { name: 'Watches', description: 'Mechanical, automatic and smart timepieces' },
+    { name: 'Bags, Luggage', description: 'Backpacks, slings, leather wallets and cabin luggage' },
+    { name: 'Eyewear, Jewelry', description: 'Designer sunglasses, fine jewelry and leather belts' },
+    { name: 'Tops, Shirts', description: 'Tees, polo shirts, knitwear and tailored poplin shirts' },
+    { name: 'Outerwear', description: 'Trench coats, leather jackets, blazers and insulated vests' },
+    { name: 'Bottoms, Dresses', description: 'Selvedge denim, tailored trousers, joggers and dresses' },
+    { name: 'Skincare', description: 'Serums, moisturizers, cleansers and daily UV protection' },
+    { name: 'Fragrance', description: 'Signature Eau de Parfum and cologne compositions' },
+    { name: 'Makeup, Hair', description: 'Lip care, complexion essentials and nourishing hair oils' },
+    { name: 'Kitchen, Coffee', description: 'Specialty coffee gear, cast iron cookware and appliances' },
+    { name: 'Home Living', description: 'Smart home vacuums, air purifiers, lighting and bedding' },
   ];
-  const displayCategories = categories.length >= 5 ? categories.slice(0, 5) : fallbackCategories;
+  const displayCategories = categories.length > 0 ? categories : fallbackCategories;
+
+  const updateCatScrollButtons = () => {
+    const el = catTrackRef.current;
+    if (!el) return;
+    setCanScrollCatLeft(el.scrollLeft > 4);
+    setCanScrollCatRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
+  useEffect(() => {
+    updateCatScrollButtons();
+    window.addEventListener('resize', updateCatScrollButtons);
+    return () => window.removeEventListener('resize', updateCatScrollButtons);
+  }, [displayCategories.length]);
+
+  const scrollCategories = (dir) => {
+    const el = catTrackRef.current;
+    if (!el) return;
+    const step = Math.max(el.clientWidth * 0.65, 320);
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh' }}>
       <style>{`
+        .home-categories-stage {
+          position: relative;
+        }
         .home-categories-grid {
           display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          gap: 18px;
+          grid-auto-flow: column;
+          grid-template-rows: repeat(2, minmax(0, 1fr));
+          grid-auto-columns: calc((100% - 64px) / 5);
+          gap: 16px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          padding: 2px 0;
+        }
+        .home-categories-grid::-webkit-scrollbar {
+          display: none;
+        }
+        .home-categories-grid > a {
+          scroll-snap-align: start;
+        }
+        .home-cat-arrow {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 40px;
+          height: 40px;
+          border-radius: 999px;
+          border: 1px solid var(--glass-border);
+          background: var(--bg-elevated);
+          color: var(--text-primary);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          z-index: 4;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+          transition: border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+        }
+        .home-cat-arrow:hover:not(:disabled) {
+          border-color: #2454F4;
+          color: #2454F4;
+          transform: translateY(-50%) scale(1.05);
+        }
+        .home-cat-arrow:disabled {
+          opacity: 0.25;
+          cursor: not-allowed;
+        }
+        .home-cat-arrow.prev {
+          left: -20px;
+        }
+        .home-cat-arrow.next {
+          right: -20px;
+        }
+        @media (max-width: 768px) {
+          .home-cat-arrow.prev {
+            left: -8px;
+          }
+          .home-cat-arrow.next {
+            right: -8px;
+          }
         }
         .home-products-grid {
           display: grid;
@@ -475,7 +681,7 @@ const Home = () => {
         }
         @media (max-width: 1120px) {
           .home-categories-grid {
-            grid-template-columns: repeat(3, 1fr);
+            grid-auto-columns: calc((100% - 32px) / 3);
           }
           .home-products-grid {
             grid-template-columns: repeat(3, 1fr);
@@ -483,7 +689,7 @@ const Home = () => {
         }
         @media (max-width: 820px) {
           .home-categories-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-auto-columns: calc((100% - 16px) / 2);
           }
           .home-products-grid {
             grid-template-columns: repeat(2, 1fr);
@@ -499,7 +705,8 @@ const Home = () => {
             padding-right: 16px !important;
           }
           .home-categories-grid {
-            grid-template-columns: 1fr;
+            grid-auto-columns: calc((100% - 12px) / 1.5);
+            gap: 12px;
           }
           .home-products-grid {
             grid-template-columns: 1fr;
@@ -568,10 +775,36 @@ const Home = () => {
           </div>
         </ScrollReveal>
 
-        <div className="home-categories-grid">
-          {displayCategories.map((cat, idx) => (
-            <CategoryTile key={cat._id || cat.id || cat.name || idx} cat={cat} />
-          ))}
+        <div className="home-categories-stage">
+          <button
+            type="button"
+            onClick={() => scrollCategories(-1)}
+            disabled={!canScrollCatLeft}
+            className="home-cat-arrow prev"
+            aria-label="Previous categories"
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          <div
+            ref={catTrackRef}
+            onScroll={updateCatScrollButtons}
+            className="home-categories-grid"
+          >
+            {displayCategories.map((cat, idx) => (
+              <CategoryTile key={cat._id || cat.id || cat.name || idx} cat={cat} />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => scrollCategories(1)}
+            disabled={!canScrollCatRight}
+            className="home-cat-arrow next"
+            aria-label="Next categories"
+          >
+            <ChevronRight size={18} />
+          </button>
         </div>
       </section>
 
@@ -593,24 +826,39 @@ const Home = () => {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-end',
-              marginBottom: '24px',
+              marginBottom: '12px',
               flexWrap: 'wrap',
               gap: '12px',
             }}
           >
-            <h2
-              style={{
-                fontSize: 'clamp(22px, 2.2vw, 26px)',
-                fontWeight: '700',
-                color: isDark ? '#f8fafc' : '#0b132b',
-                letterSpacing: '-0.025em',
-                margin: 0,
-                lineHeight: '1.2',
-                fontFamily: '"Plus Jakarta Sans", "Inter", sans-serif',
-              }}
-            >
-              Trending Products
-            </h2>
+            <div>
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: '#2454F4',
+                  marginBottom: '6px',
+                }}
+              >
+                Curated Picks
+              </span>
+              <h2
+                style={{
+                  fontSize: 'clamp(22px, 2.2vw, 26px)',
+                  fontWeight: '700',
+                  color: isDark ? '#f8fafc' : '#0b132b',
+                  letterSpacing: '-0.025em',
+                  margin: 0,
+                  lineHeight: '1.2',
+                  fontFamily: '"Plus Jakarta Sans", "Inter", sans-serif',
+                }}
+              >
+                Trending Products
+              </h2>
+            </div>
 
             <Link
               to="/products"
@@ -631,13 +879,9 @@ const Home = () => {
         </ScrollReveal>
 
         {loading ? (
-          <ProductListSkeleton count={8} />
+          <ProductListSkeleton count={4} />
         ) : (
-          <div className="home-products-grid">
-            {trendingProducts.map((prod) => (
-              <HomeProductCard key={prod._id || prod.id} product={prod} />
-            ))}
-          </div>
+          <TrendingSpotlight products={trendingProducts} />
         )}
       </section>
 
