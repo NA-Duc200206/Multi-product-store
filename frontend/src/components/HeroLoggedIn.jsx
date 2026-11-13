@@ -14,27 +14,27 @@ const HeroLoggedIn = () => {
   const slides = [
     {
       title: "SARTORIAL ELEGANCE",
-      subtitle: "Curated minimalist apparel and seasonal wardrobe staples from prestige designers.",
-      tag: "Summer Collection 2026",
+      subtitle: "Curated modern silhouettes, refined tailoring, and minimalist apparel for your personal expression.",
+      tag: "New Season 2026",
       image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=1400",
-      buttonText: "Shop Fashion",
-      link: "/products?categoryId=fashion"
+      buttonText: "Explore Fashion",
+      link: "/products"
     },
     {
       title: "ACOUSTIC PRECISION",
-      subtitle: "Experience absolute audio clarity with industry-leading active noise cancellation.",
-      tag: "High-Fidelity Tech",
+      subtitle: "Experience next-generation high-fidelity audio and smart ambient devices from leading audio engineers.",
+      tag: "Smart Electronics",
       image: "https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&q=80&w=1400",
-      buttonText: "Explore Audio",
-      link: "/products?categoryId=electronics"
+      buttonText: "Explore Tech",
+      link: "/products"
     },
     {
       title: "TIMELESS AESTHETICS",
-      subtitle: "Nourish your skin and reveal natural radiance with our luxury beauty curations.",
-      tag: "Prestige Cosmetics",
+      subtitle: "Elevate your daily ritual with clean skincare formulations and dermatologically tested beauty essentials.",
+      tag: "Curated Beauty",
       image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=1400",
-      buttonText: "Discover Beauty",
-      link: "/products?categoryId=cosmetics"
+      buttonText: "Explore Beauty",
+      link: "/products"
     }
   ];
 
@@ -213,7 +213,7 @@ const HeroLoggedIn = () => {
           {/* Slide Text Content */}
           <div className="slide-content-box">
             <span className="slider-welcome-badge">
-              Hello, {user?.name || 'Shopper'} • {slides[currentSlide].tag}
+              Welcome back, {user?.name || 'Member'} • {slides[currentSlide].tag}
             </span>
             <h1 className="slider-h1">
               {slides[currentSlide].title}

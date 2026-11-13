@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 
 /**
- * GlowLogoIcon — Biểu tượng chữ U xanh (#2454F4) khuyết mũi tên tam giác 45° bên nhánh phải
- * Dựng chuẩn 1:1 theo file frontend/public/asset/image.png
- * ViewBox 10 10 80 80 loại bỏ toàn bộ khoảng trống thừa bên phải để chữ U áp sát tự nhiên vào CONEXT.
+ * GlowLogoIcon — Custom royal blue (#2454F4) U-mark with a 45° triangular cut on the right arm
+ * Engineered 1:1 matching frontend/public/asset/image.png
+ * ViewBox 10 10 80 80 removes extra whitespace so the U naturally leads into CONEXT.
  */
 export const GlowLogoIcon = ({ size, color = '#2454F4', style }) => {
   return (
@@ -48,8 +48,8 @@ export const GlowLogoIcon = ({ size, color = '#2454F4', style }) => {
 };
 
 /**
- * UconextStylizedX — Chữ X cách điệu màu xanh (#2454F4) có 2 ngạnh sắc đối xứng bên trái
- * Dựng chuẩn theo pixel từ chữ X trong ảnh mẫu frontend/public/asset/image.png
+ * UconextStylizedX — Stylized royal blue (#2454F4) X glyph with dual left-side prongs
+ * Precision engineered from the logo sample at frontend/public/asset/image.png
  */
 export const UconextStylizedX = ({ color = '#2454F4', style }) => {
   return (

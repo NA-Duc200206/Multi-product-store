@@ -287,7 +287,7 @@ export const seedDatabase = async () => {
           price: 2200000.00,
           stock: 30,
           description: "Coach men's wallet crafted from durable natural pebble leather, highly resistant to scratches. Ultra-slim design with ample slots for cash, cards, and receipts.",
-          image: 'https://images.unsplash.com/photo-1590564313990-98a8d0d9a70e?auto=format&fit=crop&q=80&w=800',
+          image: 'https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&q=80&w=800',
           options: {
             colors: ['Black', 'Brown'],
             sizes: ['Standard']

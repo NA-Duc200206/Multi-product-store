@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { subscribeToEvent } from '../services/socket';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
@@ -21,6 +22,26 @@ const AdminOrders = () => {
       return;
     }
     loadOrders();
+
+    const unsubCreated = subscribeToEvent('order:created', (newOrder) => {
+      showToast(`⚡ New order received: #${String(newOrder.id || newOrder._id).slice(-6)}!`, 'info');
+      loadOrders();
+    });
+
+    const unsubUpdated = subscribeToEvent('order:updated', () => {
+      loadOrders();
+    });
+
+    const unsubCancelled = subscribeToEvent('order:cancelled', (ord) => {
+      showToast(`Order #${String(ord.id || ord._id).slice(-6)} was cancelled.`, 'warning');
+      loadOrders();
+    });
+
+    return () => {
+      unsubCreated();
+      unsubUpdated();
+      unsubCancelled();
+    };
   }, [isAdmin]);
 
   const loadOrders = async () => {

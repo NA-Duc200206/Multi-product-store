@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { DashboardSkeleton } from '../components/SkeletonLoader';
 import { ResponsiveContainer, ComposedChart, AreaChart, Area, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { DollarSign, ShoppingCart, Users, Package, ArrowRight, Eye, LayoutDashboard, ShoppingBag } from 'lucide-react';
+import { DollarSign, ShoppingCart, Users, Package, ArrowRight, Eye, LayoutDashboard, ShoppingBag, Ticket } from 'lucide-react';
 
 const AdminDashboard = () => {
   const { user, isAdmin } = useAuth();
@@ -101,12 +101,18 @@ const AdminDashboard = () => {
         </div>
 
         {/* Navigation Quick Links */}
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <Link to="/admin/products" className="btn btn-secondary">
-            <ShoppingBag size={16} /> Manage Products
+            <ShoppingBag size={16} /> Products
           </Link>
           <Link to="/admin/orders" className="btn btn-accent">
-            <ShoppingCart size={16} /> Manage Orders
+            <ShoppingCart size={16} /> Orders
+          </Link>
+          <Link to="/admin/users" className="btn btn-secondary">
+            <Users size={16} /> Users
+          </Link>
+          <Link to="/admin/coupons" className="btn btn-secondary">
+            <Ticket size={16} /> Coupons
           </Link>
         </div>
       </div>
@@ -139,7 +145,7 @@ const AdminDashboard = () => {
       <div className="glass-card" style={{ padding: '24px', minHeight: '450px', display: 'flex', flexDirection: 'column', marginBottom: '30px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h3 style={{ fontSize: '18px', color: 'var(--text-primary)', marginBottom: '4px' }}>Sales & Transaction Analytics</h3>
+            <h3 style={{ fontSize: '18px', color: 'var(--text-primary)', marginBottom: '4px' }}>Sales and Transaction Analytics</h3>
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Historical monthly overview of sales performance, volume, and Average Order Value (AOV)</p>
           </div>
           <div style={{ display: 'flex', gap: '8px', background: 'var(--input-bg)', padding: '4px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>

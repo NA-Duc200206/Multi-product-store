@@ -2,32 +2,36 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
-import { Trash2, ShoppingBag, Plus, Minus, CreditCard, Truck, Tag, Check } from 'lucide-react';
+import { Trash2, ShoppingBag, Plus, Minus, CreditCard, Truck, Tag, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const Cart = () => {
   const { cart, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
   const { user } = useAuth();
-  const { showToast } = useToast();
   const navigate = useNavigate();
 
   // Checkout states
   const [isCheckoutMode, setIsCheckoutMode] = useState(false);
-  const [shippingAddress, setShippingAddress] = useState('');
+  const [fullName, setFullName] = useState(user?.name || '');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [provinceCity, setProvinceCity] = useState('');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [orderNotes, setOrderNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cod'); // 'cod' or 'vnpay'
   const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutFeedback, setCheckoutFeedback] = useState(null);
 
   // Promo Code states
   const [promoCode, setPromoCode] = useState('');
-  const [discountPercent, setDiscountPercent] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(0);
   const [appliedCode, setAppliedCode] = useState('');
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [couponFeedback, setCouponFeedback] = useState(null);
 
   const subtotal = getCartTotal();
-  // Free shipping on orders over 1.000.000đ, otherwise 30.000đ
+  // Free shipping on orders over 1,000,000 VND, otherwise 30,000 VND
   const shippingFee = subtotal > 1000000 ? 0 : 30000;
-  const discountAmount = Math.round((subtotal * discountPercent) / 100);
-  const total = subtotal + shippingFee - discountAmount;
+  const total = Math.max(0, subtotal + shippingFee - discountAmount);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -37,33 +41,52 @@ const Cart = () => {
     }).format(amount);
   };
 
-  const handleApplyPromoCode = (e) => {
+  const handleApplyPromoCode = async (e) => {
     e.preventDefault();
-    const cleanCode = promoCode.trim().toUpperCase();
-    if (cleanCode === 'UCONEXT' || cleanCode === 'GLOWSTORE' || cleanCode === 'GLOW10' || cleanCode === 'SALE10') {
-      setDiscountPercent(10);
-      setAppliedCode(cleanCode);
-      showToast('Promo code applied successfully (10% discount)!', 'success');
-    } else {
-      showToast('Invalid or expired promo code.', 'error');
+    setCouponFeedback(null);
+    if (!promoCode.trim()) {
+      setCouponFeedback({ type: 'error', message: 'Please enter a coupon code.' });
+      return;
+    }
+
+    setValidatingCoupon(true);
+    try {
+      const res = await api.coupons.validate(promoCode.trim(), subtotal);
+      setDiscountAmount(res.discountAmount);
+      setAppliedCode(res.code);
+      setCouponFeedback({ type: 'success', message: `Coupon "${res.code}" applied (-${formatCurrency(res.discountAmount)}).` });
+    } catch (err) {
+      // Fallback promo codes
+      const cleanCode = promoCode.trim().toUpperCase();
+      if (cleanCode === 'UCONEXT' || cleanCode === 'GLOW10' || cleanCode === 'SALE10') {
+        const disc = Math.round(subtotal * 0.1);
+        setDiscountAmount(disc);
+        setAppliedCode(cleanCode);
+        setCouponFeedback({ type: 'success', message: `Promo code "${cleanCode}" applied (10% discount).` });
+      } else {
+        setCouponFeedback({ type: 'error', message: err.message || 'Invalid or expired coupon code.' });
+      }
+    } finally {
+      setValidatingCoupon(false);
     }
   };
 
   const handleProceedToCheckout = () => {
+    setCheckoutFeedback(null);
     if (!user) {
-      showToast('Please login before checkout.', 'warning');
       navigate('/login?redirect=cart');
       return;
     }
     setIsCheckoutMode(true);
-    showToast('Please enter shipping details and choose payment method.', 'info');
+    if (!fullName && user.name) setFullName(user.name);
   };
 
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
+    setCheckoutFeedback(null);
 
-    if (!shippingAddress.trim()) {
-      showToast('Please enter shipping address.', 'warning');
+    if (!fullName.trim() || !phoneNumber.trim() || !provinceCity.trim() || !streetAddress.trim()) {
+      setCheckoutFeedback({ type: 'error', message: 'Please fill in recipient name, phone, city, and address.' });
       return;
     }
 
@@ -76,14 +99,16 @@ const Cart = () => {
         size: item.size
       }));
 
+      const fullShippingAddress = `${fullName.trim()} | ${phoneNumber.trim()} | ${streetAddress.trim()}, ${provinceCity.trim()}${orderNotes ? ` (Note: ${orderNotes.trim()})` : ''}`;
+
       const orderResponse = await api.orders.create({
         items: orderItems,
-        shippingAddress,
-        paymentMethod
+        shippingAddress: fullShippingAddress,
+        paymentMethod,
+        couponCode: appliedCode || undefined
       });
 
       const order = orderResponse.order;
-      showToast('Order placed successfully!', 'success');
 
       if (paymentMethod === 'vnpay') {
         const paymentResponse = await api.payments.createPaymentUrl(order.id);
@@ -95,7 +120,7 @@ const Cart = () => {
         navigate('/payment-result?method=cod');
       }
     } catch (error) {
-      showToast(error.message || 'Failed to place order. Please try again.', 'error');
+      setCheckoutFeedback({ type: 'error', message: error.message || 'Failed to place order. Please try again.' });
     } finally {
       setCheckingOut(false);
     }
@@ -262,9 +287,9 @@ const Cart = () => {
               </div>
               
               {/* Promo Code Discount */}
-              {discountPercent > 0 && (
+              {discountAmount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--color-success)', fontWeight: '600' }}>
-                  <span>Discount ({appliedCode})</span>
+                  <span>Discount ({appliedCode || 'Coupon'})</span>
                   <span>-{formatCurrency(discountAmount)}</span>
                 </div>
               )}
@@ -294,43 +319,123 @@ const Cart = () => {
             </div>
 
             {/* Promo Code Input Block */}
-            <form onSubmit={handleApplyPromoCode} style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-              <div style={{ position: 'relative', flex: 1 }}>
-                <input 
-                  type="text" 
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  placeholder="Promo code (GLOW10)..."
-                  className="glass-input"
-                  style={{ paddingLeft: '34px', fontSize: '12px', textTransform: 'uppercase' }}
-                  disabled={!!appliedCode}
-                />
-                <Tag size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              </div>
-              <button 
-                type="submit" 
-                className="btn btn-secondary" 
-                style={{ padding: '0 16px', fontSize: '12px', height: '40px', fontWeight: '700' }}
-                disabled={!!appliedCode}
-              >
-                {appliedCode ? <Check size={16} /> : 'Apply'}
-              </button>
-            </form>
+            <div>
+              <form onSubmit={handleApplyPromoCode} style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <input 
+                    type="text" 
+                    value={promoCode}
+                    onChange={(e) => {
+                      setPromoCode(e.target.value);
+                      if (couponFeedback) setCouponFeedback(null);
+                    }}
+                    placeholder="Promo code (UCONEXT10)..."
+                    className="glass-input"
+                    style={{ paddingLeft: '34px', fontSize: '12px', textTransform: 'uppercase' }}
+                    disabled={!!appliedCode}
+                  />
+                  <Tag size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                </div>
+                <button 
+                  type="submit" 
+                  className="btn btn-secondary" 
+                  style={{ padding: '0 16px', fontSize: '12px', height: '40px', fontWeight: '700' }}
+                  disabled={!!appliedCode || validatingCoupon}
+                >
+                  {validatingCoupon ? 'Checking...' : appliedCode ? <Check size={16} /> : 'Apply'}
+                </button>
+              </form>
+              {couponFeedback && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginTop: '8px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: couponFeedback.type === 'success' ? '#10b981' : '#ef4444',
+                  }}
+                >
+                  {couponFeedback.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                  <span>{couponFeedback.message}</span>
+                </div>
+              )}
+            </div>
 
             {/* Conditional Form: Checkout Steps (Shipping/Payment) */}
             {isCheckoutMode && user && (
               <form onSubmit={handleCheckoutSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '1px solid var(--glass-border)', paddingTop: '20px', marginTop: '10px' }}>
-                {/* Shipping Address Input */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: '600' }}>Shipping Address</label>
-                  <textarea 
-                    value={shippingAddress}
-                    onChange={(e) => setShippingAddress(e.target.value)}
-                    placeholder="Street address, city, state, postal code..."
-                    className="glass-input"
-                    style={{ minHeight: '80px', fontSize: '13px', resize: 'vertical' }}
-                    required
-                  />
+                {/* Structured Shipping Details */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>
+                    Shipping Information
+                  </label>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Recipient Name *</span>
+                      <input 
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="e.g. David Nguyen"
+                        className="glass-input"
+                        style={{ height: '40px', fontSize: '13px' }}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Phone Number *</span>
+                      <input 
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder="0912 345 678"
+                        className="glass-input"
+                        style={{ height: '40px', fontSize: '13px' }}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Province / City *</span>
+                    <input 
+                      type="text"
+                      value={provinceCity}
+                      onChange={(e) => setProvinceCity(e.target.value)}
+                      placeholder="e.g. Hanoi / Ho Chi Minh City / Da Nang"
+                      className="glass-input"
+                      style={{ height: '40px', fontSize: '13px' }}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Street Address / Ward / District *</span>
+                    <input 
+                      type="text"
+                      value={streetAddress}
+                      onChange={(e) => setStreetAddress(e.target.value)}
+                      placeholder="e.g. 120 Tran Duy Hung, Trung Hoa, Cau Giay"
+                      className="glass-input"
+                      style={{ height: '40px', fontSize: '13px' }}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Order Note (Optional)</span>
+                    <input 
+                      type="text"
+                      value={orderNotes}
+                      onChange={(e) => setOrderNotes(e.target.value)}
+                      placeholder="e.g. Deliver during business hours"
+                      className="glass-input"
+                      style={{ height: '40px', fontSize: '13px' }}
+                    />
+                  </div>
                 </div>
 
                 {/* Payment Options */}
@@ -387,6 +492,28 @@ const Cart = () => {
 
                   </div>
                 </div>
+
+                {/* Inline Checkout Feedback */}
+                {checkoutFeedback && (
+                  <div
+                    role="alert"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.28)',
+                      color: '#ef4444',
+                      fontSize: '12.5px',
+                      fontWeight: '600',
+                    }}
+                  >
+                    <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                    <span>{checkoutFeedback.message}</span>
+                  </div>
+                )}
 
                 {/* Final Submit Checkout */}
                 <button 

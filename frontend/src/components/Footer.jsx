@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import GlowLogo from './GlowLogo';
 
@@ -7,16 +8,18 @@ const Footer = () => {
 
   return (
     <footer style={{
-      borderTop: `1px solid ${isDark ? 'var(--glass-border)' : 'rgba(124, 58, 237, 0.08)'}`,
+      borderTop: `1px solid ${isDark ? 'var(--glass-border)' : 'rgba(36, 84, 244, 0.08)'}`,
       background: 'var(--footer-bg)',
-      padding: '40px 5% 20px 5%',
+      padding: '48px 48px 24px 48px',
       marginTop: 'auto',
       color: isDark ? 'var(--text-secondary)' : 'rgba(255,255,255,0.7)',
       fontSize: '14px'
     }}>
       <div style={{
+        maxWidth: '1560px',
+        margin: '0 auto',
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '40px',
         marginBottom: '40px'
       }}>
@@ -24,40 +27,54 @@ const Footer = () => {
           <div style={{ marginBottom: '16px' }}>
             <GlowLogo size={32} fontSize="24px" color={isDark ? 'var(--text-primary)' : '#ffffff'} />
           </div>
-          <p style={{ lineHeight: '1.6' }}>
-            Premium shopping experience with genuine cosmetics, fashion, and designer accessories.
+          <p style={{ lineHeight: '1.7', color: isDark ? 'var(--text-secondary)' : 'rgba(255,255,255,0.7)', maxWidth: '320px' }}>
+            Curated multi-category shopping ecosystem. Connecting modern lifestyles with premium fashion, tech, accessories, and authentic cosmetics.
           </p>
         </div>
+
         <div>
-          <h4 style={{ color: isDark ? 'var(--text-primary)' : '#ffffff', marginBottom: '16px' }}>Quick Links</h4>
+          <h4 style={{ color: '#ffffff', marginBottom: '16px', fontSize: '15px', fontWeight: '700' }}>
+            Explore
+          </h4>
           <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <li><a href="/" style={{ color: 'inherit', textDecoration: 'none' }}>Home</a></li>
-            <li><a href="/products" style={{ color: 'inherit', textDecoration: 'none' }}>Products</a></li>
-            <li><a href="/cart" style={{ color: 'inherit', textDecoration: 'none' }}>Cart</a></li>
+            <li><Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>Home</Link></li>
+            <li><Link to="/products" style={{ color: 'inherit', textDecoration: 'none' }}>All Products</Link></li>
+            <li><Link to="/cart" style={{ color: 'inherit', textDecoration: 'none' }}>Shopping Cart</Link></li>
           </ul>
         </div>
+
         <div>
-          <h4 style={{ color: isDark ? 'var(--text-primary)' : '#ffffff', marginBottom: '16px' }}>Policies</h4>
+          <h4 style={{ color: '#ffffff', marginBottom: '16px', fontSize: '15px', fontWeight: '700' }}>
+            Customer Policies
+          </h4>
           <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <li>Privacy Policy</li>
-            <li>Shipping Policy</li>
-            <li>VNPAY Payment Policy</li>
+            <li>Privacy, Data Security Policy</li>
+            <li>Nationwide Shipping Policy</li>
+            <li>30-Day Transparent Returns</li>
+            <li>Secure VNPAY Payment Gateway</li>
           </ul>
         </div>
+
         <div>
-          <h4 style={{ color: isDark ? 'var(--text-primary)' : '#ffffff', marginBottom: '16px' }}>Customer Support</h4>
-          <p style={{ lineHeight: '1.6', marginBottom: '8px' }}>Email: support@uconext.com</p>
-          <p style={{ lineHeight: '1.6' }}>Hotline: 1900 6868</p>
+          <h4 style={{ color: '#ffffff', marginBottom: '16px', fontSize: '15px', fontWeight: '700' }}>
+            Customer Support
+          </h4>
+          <p style={{ lineHeight: '1.6', marginBottom: '8px' }}>Email: support@uconext.vn</p>
+          <p style={{ lineHeight: '1.6', marginBottom: '8px' }}>Support Hotline: 1900 6868</p>
+          <p style={{ lineHeight: '1.6' }}>Hours: 08:00 – 21:00 (Mon – Sun)</p>
         </div>
       </div>
+
       <div style={{
+        maxWidth: '1560px',
+        margin: '0 auto',
         textAlign: 'center',
         paddingTop: '20px',
         borderTop: '1px solid var(--footer-border)',
         fontSize: '12px',
-        color: isDark ? 'var(--text-muted)' : 'rgba(255,255,255,0.4)'
+        color: isDark ? 'var(--text-muted)' : 'rgba(255,255,255,0.45)'
       }}>
-        © 2026 UCONEXT (Utilities • Connect • Trends). All rights reserved. VNPAY Sandbox payment integrated.
+        © 2026 UCONEXT • UTILITIES • CONNECT • TRENDS. All rights reserved. Secure checkout integrated with VNPAY Sandbox.
       </div>
     </footer>
   );

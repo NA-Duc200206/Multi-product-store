@@ -10,6 +10,7 @@ import { ToastProvider } from './context/ToastContext';
 // Layout Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import AIFloatingChat from './components/AIFloatingChat';
 
 // Pages
 import Home from './pages/Home';
@@ -23,6 +24,8 @@ import MyOrders from './pages/MyOrders';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminProducts from './pages/AdminProducts';
 import AdminOrders from './pages/AdminOrders';
+import AdminUsers from './pages/AdminUsers';
+import AdminCoupons from './pages/AdminCoupons';
 import Settings from './pages/Settings';
 
 const AppContent = () => {
@@ -61,11 +64,7 @@ const AppContent = () => {
         }
       `}</style>
 
-      {/* Background ambient glow spheres */}
-      <div className="glow-sphere glow-sphere-1"></div>
-      <div className="glow-sphere glow-sphere-2"></div>
-      <div className="glow-sphere glow-sphere-3"></div>
-      {!isAuthPage && !isHomePage && <Navbar />}
+      {!isAuthPage && <Navbar />}
       
       <main style={{ flex: 1, position: 'relative', zIndex: 1 }}>
         <div key={location.pathname} className="page-transition-container">
@@ -84,11 +83,14 @@ const AppContent = () => {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/products" element={<AdminProducts />} />
             <Route path="/admin/orders" element={<AdminOrders />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/coupons" element={<AdminCoupons />} />
           </Routes>
         </div>
       </main>
 
       {!isAdminPage && !isAuthPage && <Footer />}
+      {!isAdminPage && !isAuthPage && <AIFloatingChat />}
     </div>
   );
 };

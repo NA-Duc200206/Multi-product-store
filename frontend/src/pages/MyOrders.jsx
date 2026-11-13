@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { subscribeToEvent } from '../services/socket';
 import { useToast } from '../context/ToastContext';
 import { Package, Calendar, Clock, CreditCard, ChevronRight, ShoppingBag } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -21,6 +22,16 @@ const MyOrders = () => {
       }
     };
     fetchOrders();
+
+    // Subscribe to live status updates
+    const unsubscribeUpdate = subscribeToEvent('order:updated', (updatedOrder) => {
+      setOrders(prev => prev.map(o => (o.id === updatedOrder.id || o._id === updatedOrder._id) ? { ...o, ...updatedOrder } : o));
+      showToast(`Order #${String(updatedOrder.id || updatedOrder._id).slice(-6)} status updated to ${updatedOrder.status}.`, 'info');
+    });
+
+    return () => {
+      unsubscribeUpdate();
+    };
   }, []);
 
   const formatCurrency = (amount) => {
@@ -59,6 +70,17 @@ const MyOrders = () => {
       window.location.href = res.paymentUrl;
     } catch (err) {
       showToast(err.message || 'Failed to create payment portal.', 'error');
+    }
+  };
+
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+    try {
+      await api.orders.cancelOrder(orderId);
+      showToast('Order cancelled successfully.', 'success');
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'cancelled' } : o));
+    } catch (err) {
+      showToast(err.message || 'Failed to cancel order.', 'error');
     }
   };
 
@@ -159,6 +181,15 @@ const MyOrders = () => {
                     style={{ padding: '8px 16px', fontSize: '12px' }}
                   >
                     Pay Now
+                  </button>
+                )}
+                {order.status === 'pending' && (
+                  <button 
+                    onClick={() => handleCancelOrder(order.id)}
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 16px', fontSize: '12px', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                  >
+                    Cancel Order
                   </button>
                 )}
               </div>

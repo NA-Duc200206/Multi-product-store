@@ -6,6 +6,7 @@ const router = Router();
 
 router.post('/', authenticateToken, orderController.create);
 router.get('/my-orders', authenticateToken, orderController.getMyOrders);
+router.put('/:id/cancel', authenticateToken, orderController.cancelOrder);
 router.get('/:id', authenticateToken, orderController.getById);
 router.get('/', authenticateToken, isAdmin, orderController.getAll);
 router.put('/:id/status', authenticateToken, isAdmin, orderController.updateStatus);

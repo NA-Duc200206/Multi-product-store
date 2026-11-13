@@ -1,20 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useCart } from '../context/CartContext';
-import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { ProductDetailSkeleton } from '../components/SkeletonLoader';
 import ScrollReveal from '../components/ScrollReveal';
-import { ShoppingCart, ChevronLeft, Minus, Plus, ShieldCheck, RefreshCw, Star, MessageSquare } from 'lucide-react';
+import { ShoppingCart, ChevronLeft, Minus, Plus, Star, MessageSquare, Trash2, Send, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
-  const { showToast } = useToast();
+  const { user } = useAuth();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [addedToCart, setAddedToCart] = useState(false);
+  const [cartFeedback, setCartFeedback] = useState('');
+  const addedTimerRef = useRef(null);
+
+  // Reviews state
+  const [reviews, setReviews] = useState([]);
+  const [averageRating, setAverageRating] = useState(5.0);
+  const [totalReviews, setTotalReviews] = useState(0);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewFeedback, setReviewFeedback] = useState(null);
+  
+  useEffect(() => {
+    return () => {
+      if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    };
+  }, []);
   
   // Selected variant configuration states
   const [selectedColor, setSelectedColor] = useState(null);
@@ -47,7 +65,6 @@ const ProductDetail = () => {
         }
       } catch (err) {
         console.error('Failed to load product details:', err.message);
-        showToast('Product does not exist.', 'error');
         navigate('/products');
       } finally {
         setLoading(false);
@@ -56,6 +73,63 @@ const ProductDetail = () => {
 
     fetchProduct();
   }, [id]);
+
+  const fetchReviews = async () => {
+    try {
+      const res = await api.reviews.getByProductId(id);
+      setReviews(res.reviews || []);
+      setAverageRating(res.averageRating || 5.0);
+      setTotalReviews(res.totalReviews || 0);
+    } catch (err) {
+      console.error('Failed to load reviews:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchReviews();
+    }
+  }, [id]);
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    setReviewFeedback(null);
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (!reviewComment.trim()) {
+      setReviewFeedback({ type: 'error', message: 'Please enter your review comment.' });
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      await api.reviews.add({
+        productId: id,
+        rating: reviewRating,
+        comment: reviewComment.trim()
+      });
+      setReviewFeedback({ type: 'success', message: 'Thank you! Your review has been posted.' });
+      setReviewComment('');
+      fetchReviews();
+    } catch (err) {
+      setReviewFeedback({ type: 'error', message: err.message || 'Failed to submit review.' });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    if (!window.confirm('Are you sure you want to delete this review?')) return;
+    setReviewFeedback(null);
+    try {
+      await api.reviews.delete(reviewId);
+      setReviewFeedback({ type: 'success', message: 'Review removed.' });
+      fetchReviews();
+    } catch (err) {
+      setReviewFeedback({ type: 'error', message: err.message || 'Failed to delete review.' });
+    }
+  };
 
   if (loading) {
     return (
@@ -83,58 +157,23 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (product.stock === 0) {
-      showToast('Product is out of stock.', 'warning');
+      setCartFeedback('Product is currently out of stock.');
       return;
     }
-    
+
+    setCartFeedback('');
     addToCart(product, quantity, selectedColor, selectedSize);
-    
-    let variantInfo = '';
-    if (selectedColor || selectedSize) {
-      variantInfo = ` (${[selectedColor, selectedSize].filter(Boolean).join(', ')})`;
-    }
-    showToast(`Added ${quantity} x "${product.name}"${variantInfo} to cart!`, 'success');
+    setAddedToCart(true);
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    addedTimerRef.current = setTimeout(() => setAddedToCart(false), 1600);
   };
 
   // Generate 4 mock image angles / variants based on main image
   const thumbnails = [
     product.image,
-    // Angle 2: Close-up zoom (styling overlay placeholder)
     product.image,
-    // Angle 3: Alternate lighting/zoom
     product.image,
-    // Angle 4: Alternate view
     product.image
-  ];
-
-  // Ratings calculation: parse Mongoose hexadecimal string ID into a deterministic numeric value
-  const idNum = parseInt(String(product.id || product._id || '0').slice(-6), 16) || 0;
-  const productRating = product.rating || (4 + (idNum % 11) / 10);
-  const totalReviews = (idNum * 17) % 150 + 12;
-
-  // Mock Reviews
-  const mockReviews = [
-    {
-      id: 1,
-      name: "Minh Anh Nguyen",
-      rating: 5,
-      date: "12/05/2026",
-      text: "Excellent product quality, carefully packaged, and ultra-fast delivery. The material is very soft and premium. Will definitely support the shop long term."
-    },
-    {
-      id: 2,
-      name: "Vy Tran",
-      rating: 4,
-      date: "28/04/2026",
-      text: "Very beautiful colors, matches the website description perfectly. Comfortable to use. The customer service responds fast and is extremely friendly."
-    },
-    {
-      id: 3,
-      name: "Khanh Gia Hoang",
-      rating: 5,
-      date: "15/04/2026",
-      text: "100% genuine product, fully verified details. Very competitive pricing. Shipped faster than expected, and packaged very professionally."
-    }
   ];
 
   return (
@@ -246,7 +285,7 @@ const ProductDetail = () => {
                 }}>
                   <Star size={14} fill="#f59e0b" color="#f59e0b" />
                   <span style={{ fontSize: '13px', fontWeight: '700', color: '#fbbf24' }}>
-                    {productRating.toFixed(1)}
+                    {averageRating.toFixed(1)}
                   </span>
                 </div>
                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
@@ -271,9 +310,10 @@ const ProductDetail = () => {
                   {formattedPrice}
                 </span>
               </div>
-              <span className={`badge ${product.stock > 0 ? 'badge-success' : 'badge-error'}`} style={{ padding: '6px 12px', fontSize: '12px' }}>
-                {product.stock > 0 ? `In Stock (${product.stock} units)` : 'Out of stock'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '600', color: product.stock > 0 ? '#10b981' : '#ef4444' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: product.stock > 0 ? '#10b981' : '#ef4444', display: 'inline-block' }} />
+                <span>{product.stock > 0 ? `In Stock (${product.stock} units)` : 'Out of stock'}</span>
+              </div>
             </div>
 
             {/* Short Description */}
@@ -347,6 +387,7 @@ const ProductDetail = () => {
 
             {/* Quantity Modifier & Add to Cart full-width Row */}
             {product.stock > 0 ? (
+              <>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '12px' }}>
                 {/* Quantity Modifier */}
                 <div style={{
@@ -381,35 +422,56 @@ const ProductDetail = () => {
                     padding: '14px 28px',
                     height: '48px',
                     flex: 1,
-                    fontSize: '15px'
+                    fontSize: '15px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    background: addedToCart ? '#10b981' : undefined,
+                    borderColor: addedToCart ? '#10b981' : undefined,
+                    color: addedToCart ? '#ffffff' : undefined,
+                    transition: 'all 0.25s ease'
                   }}
                 >
-                  <ShoppingCart size={18} /> Add to Cart
+                  {addedToCart ? (
+                    <>
+                      <Check size={19} strokeWidth={2.5} /> Added to Cart
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart size={18} /> Add to Cart
+                    </>
+                  )}
                 </button>
               </div>
+              {cartFeedback && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', fontSize: '13px', color: '#ef4444' }}>
+                  <AlertCircle size={15} />
+                  <span>{cartFeedback}</span>
+                </div>
+              )}
+              </>
             ) : (
               <div className="glass-card" style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: '600' }}>
                 Product temporarily out of stock
               </div>
             )}
 
-            {/* Guarantee / Value Badges */}
+            {/* Trust and delivery notes without tacky generic icons */}
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '16px',
-              marginTop: '10px',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '20px',
+              marginTop: '12px',
               borderTop: '1px solid var(--glass-border)',
-              paddingTop: '20px'
+              paddingTop: '16px',
+              fontSize: '12px',
+              color: 'var(--text-muted)',
+              lineHeight: '1.5'
             }}>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                <ShieldCheck size={18} color="var(--color-success)" />
-                <span>100% genuine product</span>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                <RefreshCw size={18} color="var(--color-success)" />
-                <span>Easy returns & exchanges</span>
-              </div>
+              <span>• Certified authentic product</span>
+              <span>• 30-day transparent returns</span>
+              <span>• Nationwide delivery with tracking</span>
             </div>
 
           </div>
@@ -436,7 +498,7 @@ const ProductDetail = () => {
               gap: '8px'
             }}
           >
-            <MessageSquare size={16} /> Customer Reviews ({mockReviews.length})
+            <MessageSquare size={16} /> Customer Reviews ({totalReviews})
             {activeTab === 'reviews' && (
               <div style={{ position: 'absolute', bottom: '-1px', left: 0, right: 0, height: '2px', background: 'var(--color-primary)' }}></div>
             )}
@@ -465,48 +527,224 @@ const ProductDetail = () => {
         {/* Tab Content Panels */}
         <div className="glass-card" style={{ padding: '32px' }}>
           {activeTab === 'reviews' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {mockReviews.map((rev) => (
-                <div 
-                  key={rev.id} 
-                  style={{
-                    borderBottom: rev.id !== mockReviews.length ? '1px solid var(--glass-border)' : 'none',
-                    paddingBottom: rev.id !== mockReviews.length ? '24px' : '0',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '10px'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                    <span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '15px' }}>
-                      {rev.name}
-                    </span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                      {rev.date}
-                    </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+              
+              {/* Write Review Form */}
+              <div style={{
+                background: 'var(--input-bg)',
+                borderRadius: '16px',
+                padding: '24px',
+                border: '1px solid var(--glass-border)'
+              }}>
+                <h4 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '16px' }}>
+                  Write a Customer Review
+                </h4>
+                {reviewFeedback && (
+                  <div
+                    role="status"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      backgroundColor: reviewFeedback.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                      border: `1px solid ${reviewFeedback.type === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                      color: reviewFeedback.type === 'success' ? '#10b981' : '#ef4444'
+                    }}
+                  >
+                    {reviewFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                    <span>{reviewFeedback.message}</span>
                   </div>
+                )}
+                {user ? (
+                  <form onSubmit={handleSubmitReview} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                        Your Rating
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            type="button"
+                            key={star}
+                            onClick={() => setReviewRating(star)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <Star
+                              size={22}
+                              fill={star <= reviewRating ? '#f59e0b' : 'none'}
+                              color={star <= reviewRating ? '#f59e0b' : 'var(--text-muted)'}
+                            />
+                          </button>
+                        ))}
+                        <span style={{ fontSize: '13px', fontWeight: '600', color: '#fbbf24', marginLeft: '6px' }}>
+                          {reviewRating} / 5 Stars
+                        </span>
+                      </div>
+                    </div>
 
-                  {/* Review Stars */}
-                  <div style={{ display: 'flex', gap: '2px' }}>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star 
-                        key={i} 
-                        size={12} 
-                        fill={i < rev.rating ? '#f59e0b' : 'none'} 
-                        color={i < rev.rating ? '#f59e0b' : 'var(--text-muted)'} 
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                        Your Feedback
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        placeholder="Share your detailed thoughts, packaging quality, product finish..."
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: '10px',
+                          border: '1px solid var(--glass-border)',
+                          background: 'var(--bg-secondary)',
+                          color: 'var(--text-primary)',
+                          fontSize: '14px',
+                          resize: 'vertical',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
                       />
-                    ))}
-                  </div>
+                    </div>
 
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6' }}>
-                    {rev.text}
-                  </p>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        type="submit"
+                        disabled={submittingReview}
+                        className="btn btn-primary"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 24px',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          borderRadius: '10px'
+                        }}
+                      >
+                        <Send size={15} />
+                        {submittingReview ? 'Submitting...' : 'Post Review'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                      Please sign in to your account to submit a review and rating for this product.
+                    </span>
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="btn btn-primary"
+                      style={{ padding: '8px 20px', fontSize: '13px', borderRadius: '8px' }}
+                    >
+                      Sign In Now
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Reviews List */}
+              {reviews.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                  <MessageSquare size={36} style={{ margin: '0 auto 12px auto', opacity: 0.5 }} />
+                  <p style={{ fontSize: '15px', fontWeight: '500' }}>No reviews yet for this product.</p>
+                  <p style={{ fontSize: '13px', marginTop: '4px' }}>Be the first customer to share your thoughts!</p>
                 </div>
-              ))}
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {reviews.map((rev) => {
+                    const isAuthorOrAdmin = user && (user.id === rev.userId || user._id === rev.userId || user.id === rev.user?._id || user.role === 'admin');
+                    return (
+                      <div 
+                        key={rev.id || rev._id} 
+                        style={{
+                          borderBottom: '1px solid var(--glass-border)',
+                          paddingBottom: '20px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              background: 'var(--color-primary)',
+                              color: '#fff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: '700',
+                              fontSize: '13px'
+                            }}>
+                              {(rev.user?.name || 'C').charAt(0).toUpperCase()}
+                            </div>
+                            <span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '15px' }}>
+                              {rev.user?.name || 'Verified Customer'}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                              {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString('vi-VN') : 'Recently'}
+                            </span>
+                            {isAuthorOrAdmin && (
+                              <button
+                                onClick={() => handleDeleteReview(rev.id || rev._id)}
+                                title="Delete review"
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  padding: '4px',
+                                  display: 'flex',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Review Stars */}
+                        <div style={{ display: 'flex', gap: '2px', marginTop: '2px' }}>
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star 
+                              key={i} 
+                              size={13} 
+                              fill={i < rev.rating ? '#f59e0b' : 'none'} 
+                              color={i < rev.rating ? '#f59e0b' : 'var(--text-muted)'} 
+                            />
+                          ))}
+                        </div>
+
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginTop: '4px' }}>
+                          {rev.comment}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : (
             <div>
-              <h3 style={{ fontSize: '18px', color: 'var(--text-primary)', marginBottom: '16px' }}>Technical Specifications & Care Instructions</h3>
+              <h3 style={{ fontSize: '18px', color: 'var(--text-primary)', marginBottom: '16px' }}>Technical Specifications, Care Instructions</h3>
               <ul style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.8', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <li>Brand: UCONEXT Official</li>
                 <li>Origin: Vietnam / Genuine imported materials</li>

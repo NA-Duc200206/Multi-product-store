@@ -123,5 +123,44 @@ export const authService = {
     userDoc.cart = cart;
     await userDoc.save();
     return true;
+  },
+
+  async getAllUsers() {
+    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    return users.map(u => ({
+      ...u.toObject(),
+      id: u._id
+    }));
+  },
+
+  async updateUserRole(userId: string, role: string) {
+    const validRoles = ['customer', 'admin', 'warehouse', 'support'];
+    if (!validRoles.includes(role)) {
+      const error: any = new Error('Invalid role specified.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const user = await User.findByIdAndUpdate(userId, { role }, { new: true }).select('-password');
+    if (!user) {
+      const error: any = new Error('User not found.');
+      error.statusCode = 404;
+      throw error;
+    }
+    return {
+      ...user.toObject(),
+      id: user._id
+    };
+  },
+
+  async updateProfile(userDoc: any, data: { name?: string; avatar?: string }) {
+    if (data.name) userDoc.name = data.name.trim();
+    if (data.avatar) userDoc.avatar = data.avatar.trim();
+    await userDoc.save();
+    const obj = userDoc.toObject();
+    delete obj.password;
+    return {
+      ...obj,
+      id: obj._id
+    };
   }
 };

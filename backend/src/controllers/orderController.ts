@@ -69,5 +69,21 @@ export const orderController = {
         error: error.message
       });
     }
+  },
+
+  async cancelOrder(req: any, res: Response) {
+    try {
+      const { id } = req.params;
+      const order = await orderService.cancelOrder(id, req.user._id);
+      return res.status(200).json({
+        message: 'Order cancelled successfully.',
+        order
+      });
+    } catch (error: any) {
+      return res.status(error.statusCode || 400).json({
+        message: error.message || 'Failed to cancel order.',
+        error: error.message
+      });
+    }
   }
 };

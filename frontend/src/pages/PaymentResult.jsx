@@ -197,7 +197,7 @@ const PaymentResult = () => {
           ) : (
             <>
               <Link to="/cart" className="btn btn-primary" style={{ padding: '12px' }}>
-                Back to Cart & Try Again
+                Back to Cart to Retry
               </Link>
               <Link to="/" className="btn btn-secondary" style={{ padding: '12px' }}>
                 Go to Home
