@@ -26,6 +26,12 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
+const extractCategoryId = (prod) => {
+  if (!prod) return null;
+  if (typeof prod.categoryId === 'string') return prod.categoryId;
+  return prod.categoryId?._id || prod.categoryId?.id || prod.category?._id || prod.category?.id || null;
+};
+
 const COMMITMENTS = [
   { num: '01', text: 'Certified authentic product' },
   { num: '02', text: '30-day transparent returns' },
@@ -134,7 +140,7 @@ const ProductDetail = () => {
           // Ignore storage quota or JSON parse errors
         }
 
-        const catId = prod.categoryId || prod.category?._id || prod.category?.id;
+        const catId = extractCategoryId(prod);
         if (catId) {
           try {
             const relRes = await api.products.getAll({ categoryId: catId, limit: 5 });
@@ -275,7 +281,7 @@ const ProductDetail = () => {
 
   if (!product) return null;
 
-  const categoryId = product.categoryId || product.category?._id || product.category?.id;
+  const categoryId = extractCategoryId(product);
   const categoryLabel = translateCategoryName(product.category?.name || 'Product');
   const hasDiscount = Boolean(product.originalPrice && product.originalPrice > product.price);
 

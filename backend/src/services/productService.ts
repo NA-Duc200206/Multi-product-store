@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Product, Category } from '../models';
 
 export interface ProductQueryParams {
@@ -20,12 +21,24 @@ export const productService = {
       query.name = { $regex: search.toString(), $options: 'i' };
     }
 
+    const pageNum = parseInt(page.toString()) || 1;
+    const limitNum = parseInt(limit.toString()) || 9;
+
     if (categoryId) {
-      if (typeof categoryId === 'string' && categoryId.includes(',')) {
-        query.categoryId = { $in: categoryId.split(',').filter(Boolean) };
-      } else {
-        query.categoryId = categoryId;
+      const rawIds = typeof categoryId === 'string' && categoryId.includes(',')
+        ? categoryId.split(',').map((s) => s.trim()).filter(Boolean)
+        : [String(categoryId).trim()];
+      const validIds = rawIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+      if (validIds.length === 0) {
+        return {
+          products: [],
+          totalProducts: 0,
+          totalPages: 0,
+          currentPage: pageNum,
+          limit: limitNum
+        };
       }
+      query.categoryId = validIds.length > 1 ? { $in: validIds } : validIds[0];
     }
 
     if (minPrice || maxPrice) {
@@ -42,8 +55,6 @@ export const productService = {
       else if (sort === 'name_desc') sortOption = { name: -1 };
     }
 
-    const pageNum = parseInt(page.toString()) || 1;
-    const limitNum = parseInt(limit.toString()) || 9;
     const skip = (pageNum - 1) * limitNum;
 
     const [products, totalProducts] = await Promise.all([
