@@ -302,7 +302,7 @@ const Navbar = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '280px', overflowY: 'auto' }}>
               {cart.map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <img src={item.image} alt={item.name} style={{ width: '52px', height: '52px', borderRadius: '10px', objectFit: 'cover' }} />
+                  <img src={item.image} alt={item.name} style={{ width: '52px', height: '52px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {item.name}
@@ -427,17 +427,17 @@ const Navbar = () => {
         .nav-tab {
           color: var(--text-secondary);
           text-decoration: none;
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 600;
           font-family: inherit;
-          padding: 8px 14px;
-          border-radius: 8px;
+          padding: 10px 18px;
+          border-radius: 10px;
           border: none;
           background: transparent;
           cursor: pointer;
           display: inline-flex;
           align-items: center;
-          gap: 5px;
+          gap: 6px;
           transition: all 0.2s ease;
           white-space: nowrap;
           position: relative;
@@ -486,7 +486,7 @@ const Navbar = () => {
         <div
           ref={desktopNavRef}
           className="desktop-nav"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}
         >
           {TABS.map((tab, idx) => {
             const tabActive = isActive(tab);
@@ -516,7 +516,7 @@ const Navbar = () => {
                   >
                     <span>{tab.label}</span>
                     <ChevronDown
-                      size={14}
+                      size={15}
                       style={{
                         transform: isMegaOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                         transition: 'transform 0.2s ease',
@@ -528,8 +528,8 @@ const Navbar = () => {
                         style={{
                           position: 'absolute',
                           bottom: '-2px',
-                          left: '14px',
-                          right: '14px',
+                          left: '18px',
+                          right: '18px',
                           height: '2px',
                           background: '#2454F4',
                           borderRadius: '2px',
@@ -546,8 +546,8 @@ const Navbar = () => {
                         style={{
                           position: 'absolute',
                           bottom: '-2px',
-                          left: '14px',
-                          right: '14px',
+                          left: '18px',
+                          right: '18px',
                           height: '2px',
                           background: '#2454F4',
                           borderRadius: '2px',
