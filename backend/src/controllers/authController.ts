@@ -77,6 +77,18 @@ export const authController = {
     }
   },
 
+  async changePassword(req: any, res: Response) {
+    try {
+      await authService.changePassword(req.user, req.body);
+      return res.status(200).json({ message: 'Password updated successfully.' });
+    } catch (error: any) {
+      return res.status(error.statusCode || 400).json({
+        message: error.message || 'Failed to change password.',
+        error: error.message
+      });
+    }
+  },
+
   async getAllUsers(req: Request, res: Response) {
     try {
       const users = await authService.getAllUsers();

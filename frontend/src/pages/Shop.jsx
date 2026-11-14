@@ -562,20 +562,27 @@ const Shop = () => {
         }
         .shop-layout {
           display: grid;
-          grid-template-columns: 260px minmax(0, 1fr);
+          grid-template-columns: 280px minmax(0, 1fr);
           gap: 32px;
           align-items: start;
         }
         .shop-sidebar {
           position: sticky;
           top: 90px;
+          max-height: calc(100vh - 110px);
+          overflow-y: auto;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
           border-radius: 16px;
           padding: 20px;
           background: ${isDark ? 'rgba(18, 22, 36, 0.72)' : '#ffffff'};
           border: 1px solid var(--glass-border);
           display: flex;
           flex-direction: column;
-          gap: 22px;
+          gap: 20px;
+        }
+        .shop-sidebar::-webkit-scrollbar {
+          display: none;
         }
         .shop-products-grid {
           display: grid;
@@ -584,6 +591,30 @@ const Shop = () => {
         }
         .shop-mobile-filter-btn {
           display: none;
+        }
+        .shop-header-controls {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: nowrap;
+        }
+        .shop-search-wrap {
+          position: relative;
+          width: 280px;
+          flex-shrink: 0;
+        }
+        .shop-sort-select {
+          height: 42px;
+          padding: 0 14px;
+          border-radius: 10px;
+          border: 1px solid var(--glass-border);
+          background: ${isDark ? '#121624' : '#ffffff'};
+          color: var(--text-primary);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          outline: none;
+          flex-shrink: 0;
         }
         @media (max-width: 1280px) {
           .shop-products-grid {
@@ -600,6 +631,8 @@ const Shop = () => {
           }
           .shop-sidebar {
             position: static;
+            max-height: none;
+            overflow-y: visible;
             display: ${mobileFiltersOpen ? 'flex' : 'none'};
           }
           .shop-mobile-filter-btn {
@@ -609,6 +642,14 @@ const Shop = () => {
         @media (max-width: 680px) {
           .shop-container {
             padding: 20px 16px 0 16px;
+          }
+          .shop-header-controls {
+            width: 100%;
+            flex-wrap: wrap;
+          }
+          .shop-search-wrap {
+            width: 100%;
+            flex: 1 1 100%;
           }
           .shop-products-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -688,8 +729,8 @@ const Shop = () => {
           </div>
 
           {/* Search, Mobile Filters Toggle & Sort */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', flex: '1 1 360px', justifyContent: 'flex-end' }}>
-            <div style={{ position: 'relative', flex: '1 1 220px', maxWidth: '340px' }}>
+          <div className="shop-header-controls">
+            <div className="shop-search-wrap">
               <Search
                 size={15}
                 style={{
@@ -709,13 +750,13 @@ const Shop = () => {
                 aria-label="Search catalog"
                 style={{
                   width: '100%',
-                  height: '40px',
+                  height: '42px',
                   padding: '0 34px 0 36px',
                   borderRadius: '10px',
                   border: '1px solid var(--glass-border)',
                   background: isDark ? 'rgba(18, 22, 36, 0.75)' : '#ffffff',
                   color: 'var(--text-primary)',
-                  fontSize: '13.5px',
+                  fontSize: '14px',
                   outline: 'none',
                 }}
               />
@@ -783,31 +824,18 @@ const Shop = () => {
               )}
             </button>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                aria-label="Sort products"
-                style={{
-                  height: '40px',
-                  padding: '0 14px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--glass-border)',
-                  background: isDark ? '#121624' : '#ffffff',
-                  color: 'var(--text-primary)',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  outline: 'none',
-                }}
-              >
-                <option value="featured">Sort: Featured</option>
-                <option value="price-asc">Price: Low to High</option>
-                <option value="price-desc">Price: High to Low</option>
-                <option value="rating-desc">Highest Rated</option>
-                <option value="discount-desc">Biggest Discount</option>
-              </select>
-            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              aria-label="Sort products"
+              className="shop-sort-select"
+            >
+              <option value="featured">Sort: Featured</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="rating-desc">Highest Rated</option>
+              <option value="discount-desc">Biggest Discount</option>
+            </select>
           </div>
         </div>
 
@@ -854,7 +882,7 @@ const Shop = () => {
             <div>
               <h3
                 style={{
-                  fontSize: '12.5px',
+                  fontSize: '13.5px',
                   fontWeight: '700',
                   color: 'var(--text-secondary)',
                   margin: '0 0 10px 0',
@@ -871,7 +899,7 @@ const Shop = () => {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     width: '100%',
-                    padding: '8px 10px',
+                    padding: '9px 12px',
                     borderRadius: '8px',
                     border: 'none',
                     background:
@@ -881,14 +909,14 @@ const Shop = () => {
                           : 'rgba(36, 84, 244, 0.08)'
                         : 'transparent',
                     color: activeCategory === 'all' ? '#2454F4' : 'var(--text-primary)',
-                    fontSize: '13px',
+                    fontSize: '14px',
                     fontWeight: activeCategory === 'all' ? '700' : '500',
                     cursor: 'pointer',
                     textAlign: 'left',
                   }}
                 >
                   <span>All Categories</span>
-                  <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                     {allProducts.length}
                   </span>
                 </button>
@@ -906,8 +934,9 @@ const Shop = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
+                        gap: '8px',
                         width: '100%',
-                        padding: '8px 10px',
+                        padding: '9px 12px',
                         borderRadius: '8px',
                         border: 'none',
                         background: isActive
@@ -916,14 +945,14 @@ const Shop = () => {
                             : 'rgba(36, 84, 244, 0.08)'
                           : 'transparent',
                         color: isActive ? '#2454F4' : 'var(--text-primary)',
-                        fontSize: '13px',
+                        fontSize: '14px',
                         fontWeight: isActive ? '700' : '500',
                         cursor: 'pointer',
                         textAlign: 'left',
                       }}
                     >
-                      <span>{label}</span>
-                      <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>
                         {categoryCounts[id] || 0}
                       </span>
                     </button>
@@ -938,7 +967,7 @@ const Shop = () => {
             <div>
               <h3
                 style={{
-                  fontSize: '12.5px',
+                  fontSize: '13.5px',
                   fontWeight: '700',
                   color: 'var(--text-secondary)',
                   margin: '0 0 10px 0',
@@ -962,7 +991,7 @@ const Shop = () => {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         width: '100%',
-                        padding: '7px 10px',
+                        padding: '9px 12px',
                         borderRadius: '8px',
                         border: 'none',
                         background: isActive
@@ -971,7 +1000,7 @@ const Shop = () => {
                             : 'rgba(36, 84, 244, 0.08)'
                           : 'transparent',
                         color: isActive ? '#2454F4' : 'var(--text-primary)',
-                        fontSize: '13px',
+                        fontSize: '14px',
                         fontWeight: isActive ? '700' : '500',
                         cursor: 'pointer',
                         textAlign: 'left',
@@ -991,7 +1020,7 @@ const Shop = () => {
             <div>
               <h3
                 style={{
-                  fontSize: '12.5px',
+                  fontSize: '13.5px',
                   fontWeight: '700',
                   color: 'var(--text-secondary)',
                   margin: '0 0 10px 0',
@@ -1005,7 +1034,7 @@ const Shop = () => {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '9px',
-                    fontSize: '13px',
+                    fontSize: '14px',
                     color: 'var(--text-primary)',
                     cursor: 'pointer',
                     fontWeight: '500',
@@ -1018,7 +1047,7 @@ const Shop = () => {
                       setInStockOnly(e.target.checked);
                       setVisibleCount(PAGE_SIZE);
                     }}
-                    style={{ accentColor: '#2454F4', width: '15px', height: '15px', cursor: 'pointer' }}
+                    style={{ accentColor: '#2454F4', width: '16px', height: '16px', cursor: 'pointer' }}
                   />
                   <span>In Stock Only</span>
                 </label>
@@ -1028,7 +1057,7 @@ const Shop = () => {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '9px',
-                    fontSize: '13px',
+                    fontSize: '14px',
                     color: 'var(--text-primary)',
                     cursor: 'pointer',
                     fontWeight: '500',
@@ -1041,7 +1070,7 @@ const Shop = () => {
                       setOnSaleOnly(e.target.checked);
                       setVisibleCount(PAGE_SIZE);
                     }}
-                    style={{ accentColor: '#2454F4', width: '15px', height: '15px', cursor: 'pointer' }}
+                    style={{ accentColor: '#2454F4', width: '16px', height: '16px', cursor: 'pointer' }}
                   />
                   <span>On Sale</span>
                 </label>
@@ -1054,7 +1083,7 @@ const Shop = () => {
             <div>
               <h3
                 style={{
-                  fontSize: '12.5px',
+                  fontSize: '13.5px',
                   fontWeight: '700',
                   color: 'var(--text-secondary)',
                   margin: '0 0 10px 0',
@@ -1078,7 +1107,7 @@ const Shop = () => {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         width: '100%',
-                        padding: '7px 10px',
+                        padding: '9px 12px',
                         borderRadius: '8px',
                         border: 'none',
                         background: isActive
@@ -1087,7 +1116,7 @@ const Shop = () => {
                             : 'rgba(36, 84, 244, 0.08)'
                           : 'transparent',
                         color: isActive ? '#2454F4' : 'var(--text-primary)',
-                        fontSize: '13px',
+                        fontSize: '14px',
                         fontWeight: isActive ? '700' : '500',
                         cursor: 'pointer',
                         textAlign: 'left',

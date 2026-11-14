@@ -68,8 +68,12 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
   };
 
+  const updateUser = (updatedUser) => {
+    setUser((prev) => (updatedUser ? { ...prev, ...updatedUser } : prev));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, isAdmin: user?.role === 'admin' }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateUser, isAdmin: user?.role === 'admin' }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,15 +2,41 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User, AuditLog } from '../models';
 
+const BCRYPT_SALT_ROUNDS = 12;
+
+function validatePasswordStrength(password: string) {
+  if (!password || password.length < 8 || password.length > 128) {
+    const error: any = new Error('Password must be between 8 and 128 characters.');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+    const error: any = new Error('Password must include at least one uppercase letter, one lowercase letter, and one number.');
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
+function sanitizeUser(userDoc: any) {
+  const obj = typeof userDoc.toObject === 'function' ? userDoc.toObject() : { ...userDoc };
+  delete obj.password;
+  delete obj.refreshTokens;
+  return {
+    ...obj,
+    id: obj._id
+  };
+}
+
 export const authService = {
   async login(email: string, password: string, ipAddress: string) {
-    if (!email || !password) {
+    const normalizedEmail = email?.trim().toLowerCase();
+    if (!normalizedEmail || !password) {
       const error: any = new Error('Email and password are required.');
       error.statusCode = 400;
       throw error;
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
     if (!user) {
       const error: any = new Error('Incorrect email or password.');
       error.statusCode = 400;
@@ -30,12 +56,7 @@ export const authService = {
       { expiresIn: '24h' }
     );
 
-    const userObj = user.toObject();
-    delete (userObj as any).password;
-    const formattedUser = {
-      ...userObj,
-      id: userObj._id
-    };
+    const formattedUser = sanitizeUser(user);
 
     try {
       await AuditLog.create({
@@ -53,25 +74,29 @@ export const authService = {
   },
 
   async register(name: string, email: string, password: string, ipAddress: string) {
-    if (!name || !email || !password) {
+    const trimmedName = name?.trim();
+    const normalizedEmail = email?.trim().toLowerCase();
+    if (!trimmedName || !normalizedEmail || !password) {
       const error: any = new Error('Please fill in all fields.');
       error.statusCode = 400;
       throw error;
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    validatePasswordStrength(password);
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       const error: any = new Error('Email already exists.');
       error.statusCode = 400;
       throw error;
     }
 
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const user = await User.create({
-      name,
-      email: email.toLowerCase(),
+      name: trimmedName,
+      email: normalizedEmail,
       password: hashedPassword,
       role: 'customer'
     });
@@ -82,12 +107,7 @@ export const authService = {
       { expiresIn: '24h' }
     );
 
-    const userObj = user.toObject();
-    delete (userObj as any).password;
-    const formattedUser = {
-      ...userObj,
-      id: userObj._id
-    };
+    const formattedUser = sanitizeUser(user);
 
     try {
       await AuditLog.create({
@@ -153,8 +173,26 @@ export const authService = {
   },
 
   async updateProfile(userDoc: any, data: { name?: string; avatar?: string }) {
-    if (data.name) userDoc.name = data.name.trim();
-    if (data.avatar) userDoc.avatar = data.avatar.trim();
+    if (data.name !== undefined) {
+      const trimmedName = String(data.name).trim();
+      if (trimmedName.length < 2 || trimmedName.length > 80) {
+        const error: any = new Error('Name must be between 2 and 80 characters.');
+        error.statusCode = 400;
+        throw error;
+      }
+      userDoc.name = trimmedName;
+    }
+
+    if (data.avatar !== undefined) {
+      const trimmedAvatar = String(data.avatar).trim();
+      if (trimmedAvatar.length > 500) {
+        const error: any = new Error('Avatar URL is too long.');
+        error.statusCode = 400;
+        throw error;
+      }
+      userDoc.avatar = trimmedAvatar;
+    }
+
     await userDoc.save();
     const obj = userDoc.toObject();
     delete obj.password;
@@ -162,5 +200,56 @@ export const authService = {
       ...obj,
       id: obj._id
     };
+  },
+
+  async changePassword(userDoc: any, data: { currentPassword?: string; newPassword?: string }) {
+    const currentPassword = data?.currentPassword || '';
+    const newPassword = data?.newPassword || '';
+
+    if (!currentPassword || !newPassword) {
+      const error: any = new Error('Current password and new password are required.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    validatePasswordStrength(newPassword);
+
+    if (currentPassword === newPassword) {
+      const error: any = new Error('New password must be different from your current password.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const userWithPassword = await User.findById(userDoc._id).select('+password');
+    if (!userWithPassword) {
+      const error: any = new Error('User not found.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, userWithPassword.password || '');
+    if (!isMatch) {
+      const error: any = new Error('Current password is incorrect.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    userWithPassword.password = await bcrypt.hash(newPassword, salt);
+    await userWithPassword.save();
+
+    try {
+      await AuditLog.create({
+        userId: userDoc._id as any,
+        action: 'CHANGE_PASSWORD',
+        targetType: 'User',
+        targetId: userDoc._id.toString(),
+        ipAddress: ''
+      });
+    } catch (logErr) {
+      console.error('Failed to create password change audit log:', logErr);
+    }
+
+    return true;
   }
 };

@@ -184,35 +184,31 @@
 
 /* Fonts */
 :root {
-  --font-display: 'Plus Jakarta Sans', sans-serif;
-  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-fast: all 0.15s ease;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;
   background-attachment: fixed;
   transition: background-color 0.4s ease, color 0.4s ease;
-}
-
-body::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: radial-gradient(var(--grid-dot-color) 1px, transparent 1px);
-  background-size: 28px 28px;
-  pointer-events: none;
-  z-index: -2;
-  transition: background-image 0.4s ease;
 }
 
 h1, h2, h3, h4, h5, h6 {

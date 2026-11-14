@@ -109,8 +109,18 @@ const PaymentResult = () => {
   const isSuccess = status === 'success' || status === 'cod_success';
 
   return (
-    <div style={{ padding: '60px 5%', display: 'flex', justifyContent: 'center' }}>
-      <div className="glass-card" style={{ maxWidth: '550px', width: '100%', padding: '40px', textAlign: 'center', borderRadius: '24px' }}>
+    <div style={{ maxWidth: '1560px', margin: '0 auto', padding: '60px 24px', display: 'flex', justifyContent: 'center' }}>
+      <div
+        style={{
+          maxWidth: '550px',
+          width: '100%',
+          padding: '40px',
+          textAlign: 'center',
+          borderRadius: '24px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--glass-border)',
+        }}
+      >
         
         {/* Outcome Icon */}
         <div style={{ display: 'inline-flex', justifyContent: 'center', marginBottom: '24px' }}>
@@ -162,7 +172,7 @@ const PaymentResult = () => {
         {/* Info panel */}
         {orderId && (
           <div style={{
-            background: 'rgba(255, 255, 255, 0.02)',
+            background: 'var(--bg-elevated)',
             border: '1px solid var(--glass-border)',
             borderRadius: '12px',
             padding: '16px',
@@ -187,7 +197,7 @@ const PaymentResult = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {isSuccess ? (
             <>
-              <Link to="/products" className="btn btn-primary" style={{ padding: '12px' }}>
+              <Link to="/products" className="btn btn-primary" style={{ padding: '12px', background: 'var(--brand)', color: '#ffffff', border: 'none' }}>
                 Continue Shopping
               </Link>
               <Link to="/orders" className="btn btn-secondary" style={{ padding: '12px' }}>
@@ -196,7 +206,7 @@ const PaymentResult = () => {
             </>
           ) : (
             <>
-              <Link to="/cart" className="btn btn-primary" style={{ padding: '12px' }}>
+              <Link to="/cart" className="btn btn-primary" style={{ padding: '12px', background: 'var(--brand)', color: '#ffffff', border: 'none' }}>
                 Back to Cart to Retry
               </Link>
               <Link to="/" className="btn btn-secondary" style={{ padding: '12px' }}>

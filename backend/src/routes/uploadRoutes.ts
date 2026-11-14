@@ -38,7 +38,7 @@ const upload = multer({
   }
 });
 
-router.post('/upload', authenticateToken, isAdmin, upload.single('image'), (req: any, res) => {
+const handleImageUpload = (req: any, res: any) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No image file uploaded.' });
@@ -54,7 +54,10 @@ router.post('/upload', authenticateToken, isAdmin, upload.single('image'), (req:
       error: error.message
     });
   }
-});
+};
+
+router.post('/upload', authenticateToken, isAdmin, upload.single('image'), handleImageUpload);
+router.post('/avatar', authenticateToken, upload.single('image'), handleImageUpload);
 
 export default router;
 

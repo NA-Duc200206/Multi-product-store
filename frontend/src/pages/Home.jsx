@@ -936,13 +936,13 @@ const Home = () => {
                   setVisibleCount(12);
                 }}
                 style={{
-                  height: '38px',
-                  padding: '0 12px',
+                  height: '42px',
+                  padding: '0 14px',
                   borderRadius: '10px',
                   border: '1px solid var(--glass-border)',
                   backgroundColor: isDark ? '#111626' : '#ffffff',
                   color: 'var(--text-primary)',
-                  fontSize: '13px',
+                  fontSize: '14px',
                   fontWeight: '600',
                   cursor: 'pointer',
                   outline: 'none',
@@ -961,12 +961,11 @@ const Home = () => {
           <div
             style={{
               display: 'flex',
+              flexWrap: 'wrap',
               gap: '8px',
-              overflowX: 'auto',
-              paddingBottom: '14px',
+              paddingBottom: '16px',
               marginBottom: '26px',
               borderBottom: '1px solid var(--glass-border)',
-              scrollbarWidth: 'none',
             }}
           >
             <button
@@ -976,9 +975,10 @@ const Home = () => {
                 setVisibleCount(12);
               }}
               style={{
-                padding: '7px 16px',
+                flexShrink: 0,
+                padding: '9px 18px',
                 borderRadius: '999px',
-                fontSize: '13px',
+                fontSize: '14px',
                 fontWeight: '600',
                 border: selectedCategory === 'all' ? '1px solid transparent' : '1px solid var(--glass-border)',
                 cursor: 'pointer',
@@ -1002,9 +1002,10 @@ const Home = () => {
                     setVisibleCount(12);
                   }}
                   style={{
-                    padding: '7px 16px',
+                    flexShrink: 0,
+                    padding: '9px 18px',
                     borderRadius: '999px',
-                    fontSize: '13px',
+                    fontSize: '14px',
                     fontWeight: '600',
                     border: isSelected ? '1px solid transparent' : '1px solid var(--glass-border)',
                     cursor: 'pointer',

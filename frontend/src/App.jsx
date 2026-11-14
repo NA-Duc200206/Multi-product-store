@@ -47,19 +47,16 @@ const AppContent = () => {
       {/* Dynamic Page Transition Animation Injection */}
       <style>{`
         .page-transition-container {
-          animation: pageSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          will-change: transform, opacity, filter;
+          animation: pageSlideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
         }
         @keyframes pageSlideUp {
           from {
             opacity: 0;
-            transform: translateY(16px);
-            filter: blur(4px);
+            transform: translateY(12px);
           }
           to {
             opacity: 1;
-            transform: translateY(0);
-            filter: blur(0);
+            transform: none;
           }
         }
       `}</style>

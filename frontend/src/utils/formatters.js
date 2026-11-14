@@ -1,17 +1,13 @@
 /**
  * Format number to currency format (VND)
  * @param {number} amount
- * @returns {string} e.g. "1,500,000 ₫"
+ * @returns {string} e.g. "1,500,000 VND"
  */
 export function formatVND(amount) {
   if (typeof amount !== 'number' || isNaN(amount)) {
-    return '0 ₫';
+    return '0 VND';
   }
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'VND',
-    minimumFractionDigits: 0
-  }).format(amount).replace('VND', '₫');
+  return `${new Intl.NumberFormat('en-US').format(Math.round(amount))} VND`;
 }
 
 /**
