@@ -38,6 +38,20 @@ async function request(endpoint, { method = 'GET', body = null, token = null } =
   }
 }
 
+async function uploadImageFile(endpoint, file) {
+  const formData = new FormData();
+  formData.append('image', file);
+  const token = localStorage.getItem('token');
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Image upload failed');
+  return data;
+}
+
 export const api = {
   // Authentication
   auth: {
@@ -45,6 +59,7 @@ export const api = {
     register: (name, email, password) => request('/auth/register', { method: 'POST', body: { name, email, password } }),
     getProfile: () => request('/auth/me'),
     updateProfile: (profileData) => request('/auth/me', { method: 'PUT', body: profileData }),
+    changePassword: (currentPassword, newPassword) => request('/auth/password', { method: 'PUT', body: { currentPassword, newPassword } }),
     syncCart: (cart) => request('/auth/cart', { method: 'PUT', body: { cart } }),
     getAllUsers: () => request('/auth/users'),
     updateUserRole: (id, role) => request(`/auth/users/${id}/role`, { method: 'PUT', body: { role } }),
@@ -98,19 +113,8 @@ export const api = {
 
   // Media Upload
   media: {
-    upload: async (file) => {
-      const formData = new FormData();
-      formData.append('image', file);
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/media/upload', {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: formData
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Image upload failed');
-      return data;
-    }
+    upload: (file) => uploadImageFile('/api/media/upload', file),
+    uploadAvatar: (file) => uploadImageFile('/api/media/avatar', file),
   },
 
   // Payments

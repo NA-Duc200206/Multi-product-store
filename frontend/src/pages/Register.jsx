@@ -160,8 +160,8 @@ const Register = () => {
       return;
     }
 
-    if (password.length < 8) {
-      setAuthError('Password must be at least 8 characters long.');
+    if (password.length < 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+      setAuthError('Password must be at least 8 characters and include uppercase, lowercase, and a number.');
       return;
     }
 
@@ -325,7 +325,7 @@ const Register = () => {
                   borderRadius: '6px',
                 }}
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
               </button>
             }
           />
@@ -367,7 +367,7 @@ const Register = () => {
                   borderRadius: '6px',
                 }}
               >
-                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showConfirmPassword ? <Eye size={18} /> : <EyeOff size={18} />}
               </button>
             }
           />

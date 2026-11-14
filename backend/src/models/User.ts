@@ -36,7 +36,7 @@ const CartItemSchema = new Schema<ICartItem>({
 const UserSchema = new Schema<IUser>({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String },
+  password: { type: String, select: false },
   role: {
     type: String,
     enum: ['guest', 'customer', 'warehouse', 'support', 'sales', 'admin', 'super_admin'],
@@ -45,7 +45,7 @@ const UserSchema = new Schema<IUser>({
   avatar: { type: String },
   cart: { type: [CartItemSchema], default: [] },
   wishlist: [{ type: Schema.Types.ObjectId, ref: 'Product' }],
-  refreshTokens: { type: [String], default: [] }
+  refreshTokens: { type: [String], default: [], select: false }
 }, {
   timestamps: true
 });
