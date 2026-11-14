@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "seed:images": "ts-node-dev --transpile-only --no-notify src/scripts/fetchUnsplashImages.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

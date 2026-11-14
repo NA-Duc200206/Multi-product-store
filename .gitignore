@@ -30,3 +30,19 @@ pnpm-debug.log*
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Local development
+.vscode/
+.idea/
+.history/
+
+# Backup
+.backup/
+backup/
+
+# Deployment
+.deploy/
+.production/
+
+# Context windows 
+context/

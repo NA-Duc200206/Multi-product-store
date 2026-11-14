@@ -7,7 +7,7 @@ export const useTheme = () => useContext(ThemeContext);
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('glowstore-theme');
-    return saved || 'dark';
+    return saved || 'light';
   });
 
   useEffect(() => {

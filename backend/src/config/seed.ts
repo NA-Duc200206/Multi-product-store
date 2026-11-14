@@ -3,6 +3,13 @@ import { User } from '../models/User';
 import { Category } from '../models/Category';
 import { Product } from '../models/Product';
 import { Order } from '../models/Order';
+import {
+  buildLargeSeedCatalog,
+  buildExtendedTemplates,
+  LEGACY_SLUG_CATEGORY_MAP,
+  SeedCategoryMap,
+  CategoryKey,
+} from './seedProducts';
 
 export const seedDatabase = async () => {
   try {
@@ -51,44 +58,41 @@ export const seedDatabase = async () => {
       await Order.deleteMany({});
     }
 
-    // Re-check count after potential wipe
-    const updatedCategoryCount = await Category.countDocuments();
-    let beautyCat, fashionCat, accCat, electronicsCat, homeCat;
+    // 2. Seed / Upsert 15 Specific Categories
+    const categoryDefinitions: Array<{ key: CategoryKey; name: string; slug: string; description: string }> = [
+      { key: 'laptopsTablets', name: 'Laptops, Tablets', slug: 'laptops-tablets', description: 'Ultrabooks, tablets, and e-readers built for portable power.' },
+      { key: 'monitorsDesk', name: 'Monitors, Desk', slug: 'monitors-desk', description: 'Studio displays, mechanical keyboards, and precision mice.' },
+      { key: 'audio', name: 'Audio', slug: 'audio', description: 'Wireless headphones, earbuds, microphones, and speakers.' },
+      { key: 'chargingStorage', name: 'Charging, Storage', slug: 'charging-storage', description: 'GaN chargers, power banks, portable SSDs, and action cameras.' },
+      { key: 'watches', name: 'Watches', slug: 'watches', description: 'Mechanical, automatic, and smart timepieces.' },
+      { key: 'bagsLuggage', name: 'Bags, Luggage', slug: 'bags-luggage', description: 'Backpacks, slings, leather wallets, and cabin luggage.' },
+      { key: 'eyewearJewelry', name: 'Eyewear, Jewelry', slug: 'eyewear-jewelry', description: 'Designer sunglasses, fine jewelry, and leather belts.' },
+      { key: 'topsShirts', name: 'Tops, Shirts', slug: 'tops-shirts', description: 'Tees, polo shirts, knitwear, and tailored poplin shirts.' },
+      { key: 'outerwear', name: 'Outerwear', slug: 'outerwear', description: 'Trench coats, leather jackets, blazers, and insulated vests.' },
+      { key: 'bottomsDresses', name: 'Bottoms, Dresses', slug: 'bottoms-dresses', description: 'Selvedge denim, tailored trousers, joggers, and dresses.' },
+      { key: 'skincare', name: 'Skincare', slug: 'skincare', description: 'Serums, moisturizers, cleansers, and daily UV protection.' },
+      { key: 'fragrance', name: 'Fragrance', slug: 'fragrance', description: 'Signature Eau de Parfum and cologne compositions.' },
+      { key: 'makeupHair', name: 'Makeup, Hair', slug: 'makeup-hair', description: 'Lip care, complexion essentials, and nourishing hair oils.' },
+      { key: 'kitchenCoffee', name: 'Kitchen, Coffee', slug: 'kitchen-coffee', description: 'Specialty coffee gear, cast iron cookware, and appliances.' },
+      { key: 'homeLiving', name: 'Home Living', slug: 'home-living', description: 'Smart home vacuums, air purifiers, lighting, and bedding.' },
+    ];
 
-    if (updatedCategoryCount === 0) {
-      beautyCat = await Category.create({
-        name: 'Cosmetics',
-        slug: 'cosmetics',
-        description: 'Premium skincare, fragrances, and makeup products.'
-      });
-      fashionCat = await Category.create({
-        name: 'Fashion',
-        slug: 'fashion',
-        description: 'Designer clothing, elegant dresses, and modern apparel for men and women.'
-      });
-      accCat = await Category.create({
-        name: 'Accessories',
-        slug: 'accessories',
-        description: 'Exquisite sunglasses, leather wallets, watches, and fine jewelry.'
-      });
-      electronicsCat = await Category.create({
-        name: 'Electronics',
-        slug: 'electronics',
-        description: 'Smartphones, laptops, headphones, and modern smart gadgets.'
-      });
-      homeCat = await Category.create({
-        name: 'Home & Living',
-        slug: 'home-living',
-        description: 'Premium kitchen utensils, decorative lights, and smart home appliances.'
-      });
-      console.log('✔ Seeded categories: Cosmetics, Fashion, Accessories, Electronics, Home & Living');
-    } else {
-      beautyCat = await Category.findOne({ slug: 'cosmetics' });
-      fashionCat = await Category.findOne({ slug: 'fashion' });
-      accCat = await Category.findOne({ slug: 'accessories' });
-      electronicsCat = await Category.findOne({ slug: 'electronics' });
-      homeCat = await Category.findOne({ slug: 'home-living' });
+    const categoryMap = {} as SeedCategoryMap;
+    for (const def of categoryDefinitions) {
+      const doc = await Category.findOneAndUpdate(
+        { slug: def.slug },
+        { $set: { name: def.name, slug: def.slug, description: def.description } },
+        { upsert: true, new: true }
+      );
+      categoryMap[def.key] = doc as any;
     }
+
+    const beautyCat = categoryMap.skincare;
+    const fashionCat = categoryMap.topsShirts;
+    const accCat = categoryMap.watches;
+    const electronicsCat = categoryMap.laptopsTablets;
+    const homeCat = categoryMap.homeLiving;
+    console.log('✔ Ensured 15 specific product categories');
 
     // 3. Seed Products
     const updatedProductCount = await Product.countDocuments();
@@ -287,7 +291,7 @@ export const seedDatabase = async () => {
           price: 2200000.00,
           stock: 30,
           description: "Coach men's wallet crafted from durable natural pebble leather, highly resistant to scratches. Ultra-slim design with ample slots for cash, cards, and receipts.",
-          image: 'https://images.unsplash.com/photo-1590564313990-98a8d0d9a70e?auto=format&fit=crop&q=80&w=800',
+          image: 'https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&q=80&w=800',
           options: {
             colors: ['Black', 'Brown'],
             sizes: ['Standard']
@@ -483,6 +487,77 @@ export const seedDatabase = async () => {
         }
       ]);
       console.log('✔ Seeded products');
+    }
+
+    // 3b. Upsert extended catalog & migrate existing products to the 9 specific categories
+    const extendedTemplates = buildExtendedTemplates();
+    const slugToCategoryId = new Map<string, any>();
+
+    Object.entries(LEGACY_SLUG_CATEGORY_MAP).forEach(([slug, key]) => {
+      if (categoryMap[key]) slugToCategoryId.set(slug, categoryMap[key]._id);
+    });
+    extendedTemplates.forEach((tpl) => {
+      if (categoryMap[tpl.categoryKey]) slugToCategoryId.set(tpl.slug, categoryMap[tpl.categoryKey]._id);
+    });
+
+    const bulkOps: any[] = [];
+    Object.entries(LEGACY_SLUG_CATEGORY_MAP).forEach(([slug, key]) => {
+      const catId = categoryMap[key]?._id;
+      if (catId) {
+        bulkOps.push({
+          updateOne: {
+            filter: { slug, categoryId: { $ne: catId } },
+            update: { $set: { categoryId: catId } },
+          },
+        });
+      }
+    });
+    extendedTemplates.forEach((tpl) => {
+      const catId = categoryMap[tpl.categoryKey]?._id;
+      if (catId) {
+        bulkOps.push({
+          updateOne: {
+            filter: { slug: tpl.slug, $or: [{ categoryId: { $ne: catId } }, { image: { $ne: tpl.image } }] },
+            update: { $set: { categoryId: catId, image: tpl.image } },
+          },
+        });
+      }
+    });
+    if (bulkOps.length > 0) {
+      const bulkRes = await Product.bulkWrite(bulkOps);
+      if (bulkRes.modifiedCount > 0) {
+        console.log(`✔ Updated ${bulkRes.modifiedCount} products (category/image sync)`);
+      }
+    }
+
+    const existingProducts = await Product.find({}, 'slug').lean();
+    const existingSlugs = new Set(existingProducts.map((p: any) => p.slug));
+    const extendedCatalog = buildLargeSeedCatalog(categoryMap);
+    const missingProducts = extendedCatalog.filter((item) => !existingSlugs.has(item.slug));
+    if (missingProducts.length > 0) {
+      await Product.insertMany(missingProducts);
+      console.log(`✔ Seeded ${missingProducts.length} additional products into catalog`);
+    }
+
+    // Remove legacy broad categories if no products remain on them
+    const legacySlugs = [
+      'cosmetics',
+      'accessories',
+      'electronics',
+      'computing',
+      'tech-gear',
+      'bags-eyewear',
+      'fashion',
+      'beauty',
+    ];
+    for (const oldSlug of legacySlugs) {
+      const oldCat = await Category.findOne({ slug: oldSlug });
+      if (oldCat) {
+        const count = await Product.countDocuments({ categoryId: oldCat._id as any });
+        if (count === 0) {
+          await Category.deleteOne({ _id: oldCat._id });
+        }
+      }
     }
 
     // 4. Seed Orders (Historical Transactions)

@@ -1,41 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
-import { useToast } from '../context/ToastContext';
-import { ShoppingCart, Star, Heart, Eye, ArrowLeftRight } from 'lucide-react';
+import { ShoppingCart, Star, Heart, Eye, Check } from 'lucide-react';
+import { formatVND, translateCategoryName, getSafeImageUrl, handleImageError } from '../utils/formatters';
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
-  const { showToast } = useToast();
   const [isHovered, setIsHovered] = useState(false);
+  const [isAdded, setIsAdded] = useState(false);
+  const timerRef = useRef(null);
 
-  const formattedPrice = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'VND',
-    minimumFractionDigits: 0
-  }).format(product.price);
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const formattedPrice = formatVND(product.price);
 
   const handleAddToCart = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     const defaultColor = product.options?.colors?.length > 0 ? product.options.colors[0] : null;
     const defaultSize = product.options?.sizes?.length > 0 ? product.options.sizes[0] : null;
     addToCart(product, 1, defaultColor, defaultSize);
-    showToast(`Added "${product.name}" to cart!`, 'success');
+    setIsAdded(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setIsAdded(false), 1400);
   };
 
-  const getHashCode = (str) => {
-    if (!str) return 0;
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return Math.abs(hash);
-  };
+  const hasDiscount = Boolean(product.originalPrice && product.originalPrice > product.price);
+  const discountPercent = hasDiscount 
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) 
+    : 0;
 
-  const idHash = getHashCode(product.id || '');
-  const rating = product.rating || (4 + (idHash % 11) / 10);
-  const reviewCount = (idHash * 17) % 150 + 12;
-  const isDiscounted = idHash % 3 === 0;
+  const hasRating = typeof product.rating === 'number' && product.rating > 0;
 
   return (
     <div
@@ -48,7 +47,7 @@ const ProductCard = ({ product }) => {
       }}
     >
       <Link 
-        to={`/product/${product.id}`} 
+        to={`/product/${product._id || product.id}`} 
         className="glass-card product-card-hover" 
         style={{
           textDecoration: 'none',
@@ -56,31 +55,33 @@ const ProductCard = ({ product }) => {
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          minHeight: '420px',
+          minHeight: '400px',
           padding: '16px',
           position: 'relative',
-          borderRadius: '24px',
+          borderRadius: 'var(--radius-lg, 20px)',
           background: 'var(--glass-bg)',
           border: '1px solid',
-          borderColor: isHovered ? 'var(--color-accent)' : 'var(--glass-border)',
-          transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-          transform: isHovered ? 'translateY(-8px)' : 'translateY(0)',
-          boxShadow: isHovered ? '0 25px 50px -12px rgba(58, 97, 246, 0.15)' : '0 10px 30px -10px rgba(0,0,0,0.1)',
+          borderColor: isHovered ? 'var(--brand, #2454F4)' : 'var(--glass-border)',
+          transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+          transform: isHovered ? 'translateY(-6px)' : 'translateY(0)',
+          boxShadow: isHovered ? '0 20px 40px -10px rgba(36, 84, 244, 0.18)' : '0 8px 24px -10px rgba(0,0,0,0.08)',
           zIndex: isHovered ? 10 : 1
         }}
       >
         {/* Product Image Container */}
         <div style={{
-          borderRadius: '16px',
+          borderRadius: 'var(--radius-md, 14px)',
           overflow: 'hidden',
           position: 'relative',
           paddingTop: '100%', // 1:1 Aspect Ratio
-          marginBottom: '20px',
+          marginBottom: '16px',
           background: 'var(--bg-secondary)'
         }}>
           <img 
-            src={product.image || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=800'} 
+            src={getSafeImageUrl(product.image)} 
             alt={product.name} 
+            loading="lazy"
+            onError={handleImageError}
             style={{
               position: 'absolute',
               top: 0,
@@ -88,27 +89,27 @@ const ProductCard = ({ product }) => {
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-              transform: isHovered ? 'scale(1.1)' : 'scale(1)'
+              transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+              transform: isHovered ? 'scale(1.06)' : 'scale(1)'
             }}
           />
           
           {/* Badges */}
-          <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 2 }}>
-            {isDiscounted && (
+          <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 2 }}>
+            {hasDiscount && (
               <span style={{
-                background: 'var(--color-error)', color: 'white', fontSize: '10px', fontWeight: '800',
-                padding: '6px 12px', borderRadius: '100px', letterSpacing: '0.05em'
+                background: '#0f172a', color: '#ffffff', fontSize: '11px', fontWeight: '700',
+                padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.02em'
               }}>
-                -15% OFF
+                -{discountPercent}%
               </span>
             )}
             {product.stock === 0 && (
               <span style={{
-                background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '800',
-                padding: '6px 12px', borderRadius: '100px', border: '1px solid var(--glass-border)'
+                background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontSize: '10px', fontWeight: '700',
+                padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--glass-border)', letterSpacing: '0.04em'
               }}>
-                SOLD OUT
+                OUT OF STOCK
               </span>
             )}
           </div>
@@ -116,32 +117,31 @@ const ProductCard = ({ product }) => {
           {/* Hover Action Buttons */}
           <div style={{
             position: 'absolute',
-            bottom: '16px',
+            bottom: '12px',
             left: '0',
             width: '100%',
             display: 'flex',
             justifyContent: 'center',
-            gap: '12px',
+            gap: '8px',
             opacity: isHovered ? 1 : 0,
-            transform: isHovered ? 'translateY(0)' : 'translateY(15px)',
-            transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+            transform: isHovered ? 'translateY(0)' : 'translateY(10px)',
+            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
             zIndex: 3
           }}>
             {[
-              { icon: <Heart size={16} />, label: 'Wishlist' },
-              { icon: <Eye size={16} />, label: 'Quick View' },
-              { icon: <ArrowLeftRight size={16} />, label: 'Compare' }
+              { icon: <Heart size={15} />, label: 'Wishlist' },
+              { icon: <Eye size={15} />, label: 'Quick View' }
             ].map((action, i) => (
               <button key={i} title={action.label} onClick={(e) => e.preventDefault()} style={{
-                width: '40px', height: '40px', borderRadius: '50%',
+                width: '36px', height: '36px', borderRadius: '50%',
                 background: 'var(--glass-bg)', backdropFilter: 'blur(8px)',
                 border: '1px solid var(--glass-border)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: 'var(--text-primary)', cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                boxShadow: '0 8px 20px rgba(0,0,0,0.1)'
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
               }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--color-accent)'; e.currentTarget.style.borderColor = 'var(--color-accent)'; }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#2454F4'; e.currentTarget.style.borderColor = '#2454F4'; }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--glass-border)'; }}
               >
                 {action.icon}
@@ -151,12 +151,12 @@ const ProductCard = ({ product }) => {
         </div>
 
         <div style={{ padding: '0 4px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-          <span style={{ fontSize: '11px', color: 'var(--color-accent)', fontWeight: '800', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>
-            {product.category?.name || 'Premium'}
+          <span style={{ fontSize: '11px', color: '#2454F4', fontWeight: '700', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '6px' }}>
+            {translateCategoryName(product.category?.name || product.category || 'Featured')}
           </span>
 
           <h3 style={{
-            fontSize: '16px',
+            fontSize: '15px',
             fontWeight: '700',
             marginBottom: '8px',
             lineHeight: '1.4',
@@ -169,24 +169,26 @@ const ProductCard = ({ product }) => {
             {product.name}
           </h3>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-              {Array.from({ length: 5 }).map((_, i) => {
-                const isFilled = i < Math.floor(rating);
-                return (
-                  <Star 
-                    key={i} 
-                    size={14} 
-                    fill={isFilled ? '#f59e0b' : 'none'} 
-                    color={isFilled ? '#f59e0b' : 'var(--glass-border)'} 
-                  />
-                );
-              })}
+          {hasRating && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                {Array.from({ length: 5 }).map((_, i) => {
+                  const isFilled = i < Math.floor(product.rating);
+                  return (
+                    <Star 
+                      key={i} 
+                      size={13} 
+                      fill={isFilled ? '#f59e0b' : 'none'} 
+                      color={isFilled ? '#f59e0b' : 'var(--glass-border)'} 
+                    />
+                  );
+                })}
+              </div>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                {product.rating.toFixed(1)} {product.reviewCount ? `(${product.reviewCount})` : ''}
+              </span>
             </div>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>
-              ({reviewCount})
-            </span>
-          </div>
+          )}
 
           {/* Footer Info & Action */}
           <div style={{
@@ -194,16 +196,16 @@ const ProductCard = ({ product }) => {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-end',
-            paddingTop: '16px',
+            paddingTop: '12px',
             borderTop: '1px solid var(--glass-border)'
           }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {isDiscounted && (
-                <span style={{ fontSize: '12px', textDecoration: 'line-through', color: 'var(--text-muted)', marginBottom: '2px' }}>
-                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'VND', minimumFractionDigits: 0 }).format(product.price * 1.15)}
+              {hasDiscount && (
+                <span style={{ fontSize: '11px', textDecoration: 'line-through', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                  {formatVND(product.originalPrice)}
                 </span>
               )}
-              <span style={{ fontSize: '18px', fontWeight: '900', color: 'var(--text-primary)' }}>
+              <span style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>
                 {formattedPrice}
               </span>
             </div>
@@ -212,24 +214,41 @@ const ProductCard = ({ product }) => {
               <button 
                 onClick={handleAddToCart}
                 style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '12px',
-                  background: isHovered ? 'linear-gradient(135deg, var(--color-accent) 0%, #7b46f3 100%)' : 'var(--glass-bg)',
-                  color: isHovered ? '#fff' : 'var(--text-primary)',
+                  width: isAdded ? 'auto' : '38px',
+                  minWidth: '38px',
+                  height: '38px',
+                  padding: isAdded ? '0 10px' : '0',
+                  borderRadius: '10px',
+                  background: isAdded ? '#10b981' : isHovered ? '#2454F4' : 'var(--glass-bg)',
+                  color: isAdded || isHovered ? '#ffffff' : 'var(--text-primary)',
                   border: '1px solid',
-                  borderColor: isHovered ? 'transparent' : 'var(--glass-border)',
+                  borderColor: isAdded ? '#10b981' : isHovered ? 'transparent' : 'var(--glass-border)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  gap: '4px',
+                  fontSize: '12px',
+                  fontWeight: '700',
                   cursor: 'pointer',
-                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                  boxShadow: isHovered ? '0 8px 20px rgba(123, 70, 243, 0.3)' : 'none',
+                  transition: 'all 0.25s ease',
+                  boxShadow: isAdded
+                    ? '0 6px 16px rgba(16, 185, 129, 0.3)'
+                    : isHovered
+                    ? '0 6px 16px rgba(36, 84, 244, 0.3)'
+                    : 'none',
+                  transform: isAdded ? 'scale(1.05)' : 'scale(1)',
                   flexShrink: 0
                 }}
-                title="Add to Cart"
+                title={isAdded ? 'Added to cart' : 'Add to cart'}
               >
-                <ShoppingCart size={16} />
+                {isAdded ? (
+                  <>
+                    <Check size={15} strokeWidth={2.5} />
+                    <span>Added</span>
+                  </>
+                ) : (
+                  <ShoppingCart size={15} />
+                )}
               </button>
             )}
           </div>

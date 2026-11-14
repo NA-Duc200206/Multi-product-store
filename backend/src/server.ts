@@ -11,6 +11,7 @@ import { Server } from 'socket.io';
 import { connectDB } from './config/db';
 import { connectRedis } from './config/redis';
 import { seedDatabase } from './config/seed';
+import { setIO } from './config/socket';
 
 import authRoutes from './routes/authRoutes';
 import categoryRoutes from './routes/categoryRoutes';
@@ -18,7 +19,12 @@ import productRoutes from './routes/productRoutes';
 import orderRoutes from './routes/orderRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
+import couponRoutes from './routes/couponRoutes';
+import uploadRoutes from './routes/uploadRoutes';
+import reviewRoutes from './routes/reviewRoutes';
+import aiRoutes from './routes/aiRoutes';
 import { errorHandler } from './middleware/errorHandler';
+import path from 'path';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,6 +37,9 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
+// Static files for uploads
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+
 // Routing
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoryRoutes);
@@ -38,13 +47,17 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/coupons', couponRoutes);
+app.use('/api/media', uploadRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
 
 // Health check
 app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to GlowStore Enterprise TS API Server', status: 'Running' });
+  res.json({ message: 'Welcome to UCONEXT Enterprise TS API Server', status: 'Running' });
 });
 
 // Setup HTTP Server & Socket.io
@@ -55,6 +68,7 @@ const io = new Server(server, {
     methods: ['GET', 'POST', 'PUT', 'DELETE']
   }
 });
+setIO(io);
 
 io.on('connection', (socket) => {
   console.log('⚡ Socket connected:', socket.id);

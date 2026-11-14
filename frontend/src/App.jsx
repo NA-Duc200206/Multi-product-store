@@ -10,6 +10,7 @@ import { ToastProvider } from './context/ToastContext';
 // Layout Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import AIFloatingChat from './components/AIFloatingChat';
 
 // Pages
 import Home from './pages/Home';
@@ -23,6 +24,8 @@ import MyOrders from './pages/MyOrders';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminProducts from './pages/AdminProducts';
 import AdminOrders from './pages/AdminOrders';
+import AdminUsers from './pages/AdminUsers';
+import AdminCoupons from './pages/AdminCoupons';
 import Settings from './pages/Settings';
 
 const AppContent = () => {
@@ -44,28 +47,21 @@ const AppContent = () => {
       {/* Dynamic Page Transition Animation Injection */}
       <style>{`
         .page-transition-container {
-          animation: pageSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          will-change: transform, opacity, filter;
+          animation: pageSlideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
         }
         @keyframes pageSlideUp {
           from {
             opacity: 0;
-            transform: translateY(16px);
-            filter: blur(4px);
+            transform: translateY(12px);
           }
           to {
             opacity: 1;
-            transform: translateY(0);
-            filter: blur(0);
+            transform: none;
           }
         }
       `}</style>
 
-      {/* Background ambient glow spheres */}
-      <div className="glow-sphere glow-sphere-1"></div>
-      <div className="glow-sphere glow-sphere-2"></div>
-      <div className="glow-sphere glow-sphere-3"></div>
-      {!isAuthPage && !isHomePage && <Navbar />}
+      {!isAuthPage && <Navbar />}
       
       <main style={{ flex: 1, position: 'relative', zIndex: 1 }}>
         <div key={location.pathname} className="page-transition-container">
@@ -84,11 +80,14 @@ const AppContent = () => {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/products" element={<AdminProducts />} />
             <Route path="/admin/orders" element={<AdminOrders />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/coupons" element={<AdminCoupons />} />
           </Routes>
         </div>
       </main>
 
       {!isAdminPage && !isAuthPage && <Footer />}
+      {!isAdminPage && !isAuthPage && <AIFloatingChat />}
     </div>
   );
 };

@@ -44,6 +44,24 @@ const AdminProducts = () => {
     colorsInput: '',
     sizesInput: ''
   });
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      showToast('Uploading image...', 'info');
+      const res = await api.media.upload(file);
+      setFormData(prev => ({ ...prev, image: res.imageUrl }));
+      showToast('Image uploaded successfully!', 'success');
+    } catch (err) {
+      showToast(err.message || 'Image upload failed.', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAdmin) {
@@ -481,15 +499,46 @@ const AdminProducts = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600' }}>Image URL</label>
-                <input 
-                  type="text" 
-                  name="image" 
-                  value={formData.image}
-                  onChange={handleInputChange}
-                  placeholder="https://example.com/image.jpg"
-                  className="glass-input"
-                />
+                <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600' }}>Product Image</label>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input 
+                    type="text" 
+                    name="image" 
+                    value={formData.image}
+                    onChange={handleInputChange}
+                    placeholder="https://example.com/image.jpg or upload below"
+                    className="glass-input"
+                    style={{ flex: 1 }}
+                  />
+                  <label 
+                    className="btn btn-secondary" 
+                    style={{ 
+                      padding: '0 14px', 
+                      height: '42px', 
+                      fontSize: '12px', 
+                      cursor: uploadingImage ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {uploadingImage ? 'Uploading...' : 'Upload File'}
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleFileUpload} 
+                      disabled={uploadingImage}
+                      style={{ display: 'none' }} 
+                    />
+                  </label>
+                </div>
+                {formData.image && (
+                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <img src={formData.image} alt="Preview" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--glass-border)' }} />
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Preview thumbnail</span>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>

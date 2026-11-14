@@ -44,7 +44,10 @@ export const api = {
     login: (email, password) => request('/auth/login', { method: 'POST', body: { email, password } }),
     register: (name, email, password) => request('/auth/register', { method: 'POST', body: { name, email, password } }),
     getProfile: () => request('/auth/me'),
+    updateProfile: (profileData) => request('/auth/me', { method: 'PUT', body: profileData }),
     syncCart: (cart) => request('/auth/cart', { method: 'PUT', body: { cart } }),
+    getAllUsers: () => request('/auth/users'),
+    updateUserRole: (id, role) => request(`/auth/users/${id}/role`, { method: 'PUT', body: { role } }),
   },
 
   // Categories
@@ -77,9 +80,37 @@ export const api = {
   orders: {
     create: (orderData) => request('/orders', { method: 'POST', body: orderData }),
     getMyOrders: () => request('/orders/my-orders'),
+    cancelOrder: (id) => request(`/orders/${id}/cancel`, { method: 'PUT' }),
     getById: (id) => request(`/orders/${id}`),
     getAll: () => request('/orders'),
     updateStatus: (id, status, paymentStatus) => request(`/orders/${id}/status`, { method: 'PUT', body: { status, paymentStatus } }),
+  },
+
+  // Coupons
+  coupons: {
+    getActive: () => request('/coupons/active'),
+    validate: (code, orderAmount) => request('/coupons/validate', { method: 'POST', body: { code, orderAmount } }),
+    getAll: () => request('/coupons'),
+    create: (couponData) => request('/coupons', { method: 'POST', body: couponData }),
+    update: (id, couponData) => request(`/coupons/${id}`, { method: 'PUT', body: couponData }),
+    delete: (id) => request(`/coupons/${id}`, { method: 'DELETE' }),
+  },
+
+  // Media Upload
+  media: {
+    upload: async (file) => {
+      const formData = new FormData();
+      formData.append('image', file);
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/media/upload', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Image upload failed');
+      return data;
+    }
   },
 
   // Payments
@@ -91,5 +122,17 @@ export const api = {
   // Analytics
   analytics: {
     getDashboardStats: () => request('/analytics/dashboard'),
+  },
+
+  // Reviews
+  reviews: {
+    getByProductId: (productId) => request(`/reviews/product/${productId}`),
+    add: (reviewData) => request('/reviews', { method: 'POST', body: reviewData }),
+    delete: (id) => request(`/reviews/${id}`, { method: 'DELETE' }),
+  },
+
+  // AI Assistant
+  ai: {
+    chat: (message) => request('/ai/chat', { method: 'POST', body: { message } }),
   }
 };

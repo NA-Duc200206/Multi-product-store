@@ -1,69 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { 
-  Eye, EyeOff, ShieldCheck, CheckCircle2, AlertCircle, Loader2, 
-  Crown, Sparkles, TrendingUp, ArrowRight,
-  Watch, Headphones, Camera, Smartphone
+  Eye, 
+  EyeOff, 
+  Loader2, 
+  AlertCircle, 
+  CheckCircle2, 
+  X
 } from 'lucide-react';
-
 import GlowLogo from '../components/GlowLogo';
+import AuthLayout from '../components/auth/AuthLayout';
+import AuthBrandPanel from '../components/auth/AuthBrandPanel';
+import AuthInput from '../components/auth/AuthInput';
 
-const FloatingInput = ({ type, label, value, onChange, error, onFocus, onBlur, iconRight, ...props }) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const { isDark } = useTheme();
-  const isActive = isFocused || value.length > 0;
-
-  return (
-    <div style={{ position: 'relative', width: '100%' }}>
-      <motion.label
-        initial={false}
-        animate={{
-          top: isActive ? '12px' : '50%',
-          left: '20px',
-          fontSize: isActive ? '11px' : '15px',
-          color: error ? '#ef4444' : isActive ? 'var(--color-accent)' : isDark ? 'var(--text-secondary)' : 'rgba(0,0,0,0.4)',
-          y: isActive ? 0 : '-50%'
-        }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-        style={{ position: 'absolute', pointerEvents: 'none', fontWeight: '600', letterSpacing: isActive ? '0.05em' : 'normal', textTransform: isActive ? 'uppercase' : 'none', zIndex: 2 }}
-      >
-        {label}
-      </motion.label>
-      <input
-        type={type}
-        value={value}
-        onChange={onChange}
-        onFocus={(e) => { setIsFocused(true); if (onFocus) onFocus(e); }}
-        onBlur={(e) => { setIsFocused(false); if (onBlur) onBlur(e); }}
-        style={{
-          width: '100%',
-          height: '64px',
-          padding: '28px 48px 8px 20px',
-          background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
-          border: `1px solid ${error ? 'rgba(239,68,68,0.5)' : isFocused ? 'rgba(123,70,243,0.5)' : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
-          borderRadius: '20px',
-          color: 'var(--text-primary)',
-          fontSize: '16px',
-          outline: 'none',
-          boxShadow: isFocused 
-            ? `0 0 0 4px ${error ? 'rgba(239,68,68,0.1)' : 'rgba(123,70,243,0.1)'}, inset 0 2px 10px rgba(0,0,0,${isDark ? '0.2' : '0.05'})` 
-            : `inset 0 2px 10px rgba(0,0,0,${isDark ? '0.1' : '0.02'})`,
-          transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-        }}
-        {...props}
-      />
-      {iconRight && (
-        <div style={{ position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)', zIndex: 2 }}>
-          {iconRight}
-        </div>
-      )}
-    </div>
-  );
-};
+const GoogleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <path
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      fill="#4285F4"
+    />
+    <path
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      fill="#34A853"
+    />
+    <path
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      fill="#FBBC05"
+    />
+    <path
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      fill="#EA4335"
+    />
+  </svg>
+);
 
 const PasswordStrength = ({ password }) => {
   const { isDark } = useTheme();
@@ -71,39 +42,69 @@ const PasswordStrength = ({ password }) => {
   const hasUpper = /[A-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   const hasSpecial = /[^A-Za-z0-9]/.test(password);
-  
+
   const score = [hasMinLen, hasUpper, hasNumber, hasSpecial].filter(Boolean).length;
-  
-  const getColor = () => {
-    if (password.length === 0) return isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)";
-    if (score < 2) return "#ef4444";
-    if (score === 2 || score === 3) return "#f59e0b";
-    if (score === 4) return "#10b981";
+
+  const getStrengthMeta = () => {
+    if (password.length === 0) return { label: '', color: 'transparent' };
+    if (score <= 1) return { label: 'Weak', color: '#ef4444' };
+    if (score === 2) return { label: 'Fair', color: '#f59e0b' };
+    if (score === 3) return { label: 'Good', color: '#3b82f6' };
+    return { label: 'Strong', color: '#10b981' };
   };
 
+  const { label, color } = getStrengthMeta();
+
+  if (password.length === 0) return null;
+
   return (
-    <div style={{ marginTop: '8px', padding: '12px', background: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.03)', borderRadius: '16px', border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)' }}>
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-        {[1, 2, 3, 4].map(idx => (
-          <div key={idx} style={{ 
-            flex: 1, height: '4px', borderRadius: '2px', 
-            background: password.length > 0 && score >= idx ? getColor() : isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-            transition: 'all 0.3s'
-          }} />
+    <div
+      style={{
+        marginTop: '8px',
+        padding: '10px 12px',
+        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.02)',
+        borderRadius: '10px',
+        border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(15, 23, 42, 0.06)'}`,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Password Strength
+        </span>
+        <span style={{ fontSize: '11px', color, fontWeight: '700' }}>
+          {label}
+        </span>
+      </div>
+
+      {/* Progress Bars */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+        {[1, 2, 3, 4].map((step) => (
+          <div
+            key={step}
+            style={{
+              flex: 1,
+              height: '3px',
+              borderRadius: '2px',
+              backgroundColor: score >= step ? color : isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(15, 23, 42, 0.1)',
+              transition: 'background-color 0.25s ease',
+            }}
+          />
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '12px', fontWeight: '600' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: hasMinLen ? '#10b981' : 'var(--text-muted)', transition: 'color 0.3s' }}>
-          <CheckCircle2 size={14} /> 8+ Characters
+
+      {/* Criteria Checklist */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 10px', fontSize: '11.5px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: hasMinLen ? '#10b981' : 'var(--text-muted)' }}>
+          <CheckCircle2 size={12} /> 8+ Characters
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: hasUpper ? '#10b981' : 'var(--text-muted)', transition: 'color 0.3s' }}>
-          <CheckCircle2 size={14} /> Uppercase Letter
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: hasUpper ? '#10b981' : 'var(--text-muted)' }}>
+          <CheckCircle2 size={12} /> Uppercase Letter
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: hasNumber ? '#10b981' : 'var(--text-muted)', transition: 'color 0.3s' }}>
-          <CheckCircle2 size={14} /> Number
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: hasNumber ? '#10b981' : 'var(--text-muted)' }}>
+          <CheckCircle2 size={12} /> Number
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: hasSpecial ? '#10b981' : 'var(--text-muted)', transition: 'color 0.3s' }}>
-          <CheckCircle2 size={14} /> Special Symbol
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: hasSpecial ? '#10b981' : 'var(--text-muted)' }}>
+          <CheckCircle2 size={12} /> Special Symbol
         </div>
       </div>
     </div>
@@ -112,36 +113,30 @@ const PasswordStrength = ({ password }) => {
 
 const Register = () => {
   const { register } = useAuth();
-  const { showToast } = useToast();
   const { isDark } = useTheme();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTarget = searchParams.get('redirect') || '/';
 
+  // Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [capsLockActive, setCapsLockActive] = useState(false);
+  const [authError, setAuthError] = useState('');
 
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  
-  const orbX = useTransform(mouseX, [-1000, 1000], [-60, 60]);
-  const orbY = useTransform(mouseY, [-1000, 1000], [-60, 60]);
-  const glowX = useTransform(mouseX, [-1000, 1000], [-100, 100]);
-  const glowY = useTransform(mouseY, [-1000, 1000], [-100, 100]);
+  // Terms Modal State
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      mouseX.set(e.clientX - window.innerWidth / 2);
-      mouseY.set(e.clientY - window.innerHeight / 2);
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [mouseX, mouseY]);
+  // Email validation
+  const isEmailValid = email.trim() === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  // Password match validation
+  const isPasswordMatch = confirmPassword.trim() === '' || password === confirmPassword;
 
   const handleKeyDown = (e) => {
     if (e.getModifierState && e.getModifierState('CapsLock')) {
@@ -152,319 +147,586 @@ const Register = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!name || !email || !password) return;
+    if (e) e.preventDefault();
+    setAuthError('');
+
+    if (!name.trim()) {
+      setAuthError('Please enter your full name.');
+      return;
+    }
+
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAuthError('Please enter a valid email address.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setAuthError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setAuthError('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    if (!agreeTerms) {
+      setAuthError('Please accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
 
     setSubmitting(true);
     try {
-      await register(name, email, password);
-      setSuccess(true);
-      setTimeout(() => {
-        showToast('Account registered successfully!', 'success');
-        navigate(redirectTarget);
-      }, 1500);
+      await register(name.trim(), email.trim(), password);
+      navigate(redirectTarget);
     } catch (error) {
-      showToast(error.message || 'Registration failed.', 'error');
+      const msg = error.message || 'Registration failed. Please try again.';
+      setAuthError(msg);
       setSubmitting(false);
     }
   };
 
-  const isEmailValid = email.length === 0 || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  
-  // Checking full password strength for button disable
-  const isPasswordStrong = password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password);
+  const handleGoogleAuth = () => {
+    setAuthError('Google account registration is enabled via corporate SSO. Please sign up with your email.');
+  };
 
-  const bubbles = React.useMemo(() => [...Array(10)].map(() => ({
-    size: Math.random() * 100 + 40, // 40px to 140px
-    left: Math.random() * 100,
-    top: Math.random() * 100,
-    duration: Math.random() * 25 + 20, // 20s to 45s (slower, smoother)
-    delay: Math.random() * -40 
-  })), []);
+  const isFormValid =
+    name.trim().length > 0 &&
+    email.trim().length > 0 &&
+    isEmailValid &&
+    password.length >= 8 &&
+    password === confirmPassword &&
+    agreeTerms;
 
   return (
-    <div style={{ height: '100vh', width: '100%', display: 'flex', background: 'var(--bg-primary)', position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 50 }}>
-      
-      {/* Top Navigation / Brand */}
-      <div style={{ position: 'absolute', top: '40px', left: '0', zIndex: 50, display: 'flex', alignItems: 'center', width: '100%', padding: '0 5%', justifyContent: 'space-between' }}>
-        <GlowLogo size={32} fontSize="24px" />
-      </div>
-
-      <style>{`
-        @keyframes float-hero {
-          0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
-          50% { transform: translateY(-40px) rotate(5deg) scale(1.05); }
-        }
-        @keyframes float-badge-1 {
-          0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-          50% { transform: translate3d(-20px, -30px, 0) scale(1.05); }
-        }
-        @keyframes float-badge-2 {
-          0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-          50% { transform: translate3d(30px, -20px, 0) scale(1.05); }
-        }
-        @keyframes float-badge-3 {
-          0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-          50% { transform: translate3d(-10px, 30px, 0) scale(1.05); }
-        }
-        .mesh-bg-epic-reg {
-          position: absolute; inset: -50%;
-          background-image: 
-            radial-gradient(ellipse at 80% 20%, ${isDark ? 'rgba(123, 70, 243, 0.15)' : 'rgba(123, 70, 243, 0.05)'} 0%, transparent 40%),
-            radial-gradient(ellipse at 20% 80%, ${isDark ? 'rgba(58, 97, 246, 0.1)' : 'rgba(58, 97, 246, 0.03)'} 0%, transparent 40%),
-            radial-gradient(ellipse at 50% 50%, ${isDark ? 'rgba(244, 114, 182, 0.05)' : 'rgba(244, 114, 182, 0.02)'} 0%, transparent 40%);
-          filter: blur(80px);
-          animation: float-hero 22s ease-in-out infinite alternate;
-        }
-        .glass-panel {
-          background: ${isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.55)'};
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          border: 1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(123,70,243,0.12)'};
-          box-shadow: ${isDark ? '0 40px 100px -20px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.15)' : '0 40px 80px -20px rgba(123,70,243,0.06), inset 0 1px 1px rgba(255,255,255,0.8)'};
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
-          text-rendering: optimizeLegibility;
-          transform: translateZ(0);
-        }
-        .badge-glass {
-          padding: 16px 24px;
-          background: ${isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.65)'};
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border-radius: 100px;
-          border: 1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(123,70,243,0.12)'};
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          color: ${isDark ? 'white' : 'var(--text-primary)'};
-          font-weight: 700;
-          font-size: 15px;
-          box-shadow: ${isDark ? '0 20px 40px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.2)' : '0 20px 40px rgba(123,70,243,0.04), inset 0 1px 1px rgba(255,255,255,0.8)'};
-        }
-        .hide-scrollbar::-webkit-scrollbar {
-          width: 0px;
-          background: transparent;
-        }
-        .bubble {
-          position: absolute;
-          border-radius: 50%;
-          background: ${isDark ? 
-            'radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(123, 70, 243, 0.15) 70%, rgba(58, 97, 246, 0.2) 90%, rgba(244, 114, 182, 0.3) 100%)' :
-            'radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.1) 40%, rgba(123, 70, 243, 0.06) 70%, rgba(58, 97, 246, 0.06) 90%, rgba(244, 114, 182, 0.08) 100%)'};
-          box-shadow: ${isDark ? 
-            'inset -10px -10px 20px rgba(244, 114, 182, 0.15), inset 10px 10px 20px rgba(58, 97, 246, 0.15), 0 20px 40px rgba(0,0,0,0.3)' :
-            'inset -10px -10px 20px rgba(244, 114, 182, 0.05), inset 10px 10px 20px rgba(58, 97, 246, 0.05), 0 20px 30px rgba(123,70,243,0.04)'};
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          border: 1px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(123, 70, 243, 0.1)'};
-          pointer-events: none;
-          z-index: 2;
-          animation: float-bubble 25s infinite linear;
-        }
-        @keyframes float-bubble {
-          0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-          33% { transform: translate(30px, -60px) scale(1.05) rotate(10deg); }
-          66% { transform: translate(-20px, -120px) scale(0.95) rotate(-5deg); }
-          100% { transform: translate(0, 0) scale(1) rotate(0deg); }
-        }
-      `}</style>
-
-      {/* Cinematic Background Layer */}
-      <div className="mesh-bg-epic-reg" />
-      <div style={{ position: 'absolute', inset: 0, opacity: 0.2, background: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")', mixBlendMode: 'overlay', pointerEvents: 'none', zIndex: 1 }} />
-
-      {/* Floating Bubbles Effect */}
-      {bubbles.map((b, i) => (
-        <div 
-          key={`bubble-${i}`}
-          className="bubble"
+    <AuthLayout
+      backTo={redirectTarget}
+      backLabel="Back to UCONEXT"
+      brandPanel={<AuthBrandPanel />}
+    >
+      {/* Brand Header */}
+      <div style={{ marginBottom: '26px' }}>
+        <div style={{ display: 'inline-block', marginBottom: '20px' }}>
+          <GlowLogo size={26} fontSize="19px" to="/" />
+        </div>
+        <h1
           style={{
-            width: `${b.size}px`,
-            height: `${b.size}px`,
-            left: `${b.left}%`,
-            top: `${b.top}%`,
-            animationDuration: `${b.duration}s`,
-            animationDelay: `${b.delay}s`
+            fontSize: '28px',
+            fontWeight: '700',
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.03em',
+            margin: '0 0 8px 0',
+            fontFamily: '"Plus Jakarta Sans", "Inter", sans-serif',
           }}
-        />
-      ))}
-
-      {/* Hero Visual Space (Asymmetric Left) */}
-      <div style={{ position: 'absolute', top: '0', left: '0', width: '55%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, pointerEvents: 'none' }}>
-        
-        <motion.div style={{ position: 'relative', width: '100%', height: '100%', x: orbX, y: orbY }}>
-          {/* Giant Ambient Glow */}
-          <motion.div style={{ position: 'absolute', top: '30%', left: '20%', width: '400px', height: '400px', borderRadius: '50%', background: isDark ? 'linear-gradient(to right, rgba(58,97,246,0.3), rgba(244,114,182,0.2))' : 'linear-gradient(to right, rgba(58,97,246,0.08), rgba(244,114,182,0.05))', filter: 'blur(100px)', x: glowX, y: glowY }} />
-          
-          {/* Floating Product Cards System */}
-          <div style={{ position: 'absolute', top: '20%', left: '15%', animation: 'float-hero 15s ease-in-out infinite' }}>
-            <div style={{ width: '260px', height: '340px', background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.65)', backdropFilter: 'blur(20px)', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(123,70,243,0.12)', borderRadius: '24px', boxShadow: isDark ? '0 30px 60px rgba(0,0,0,0.4)' : '0 30px 60px rgba(123,70,243,0.06)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div style={{ height: '65%', background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Headphones size={80} color={isDark ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.75)"} style={{ filter: isDark ? 'drop-shadow(0 10px 20px rgba(0,0,0,0.3))' : 'drop-shadow(0 10px 20px rgba(123,70,243,0.06))' }} />
-              </div>
-              <div style={{ padding: '20px' }}>
-                <div style={{ width: '80%', height: '12px', background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)', borderRadius: '6px', marginBottom: '12px' }}></div>
-                <div style={{ width: '40%', height: '12px', background: 'var(--color-accent)', borderRadius: '6px' }}></div>
-              </div>
-            </div>
-            
-            <div style={{ position: 'absolute', top: '-20px', left: '-40px', animation: 'float-badge-1 12s ease-in-out infinite' }}>
-              <div className="badge-glass">
-                <Crown size={22} color="#fbbf24" style={{ filter: 'drop-shadow(0 0 10px rgba(251,191,36,0.5))' }} /> Exclusive Membership
-              </div>
-            </div>
-          </div>
-
-          <div style={{ position: 'absolute', top: '35%', left: '45%', animation: 'float-hero 12s ease-in-out infinite', animationDelay: '-5s' }}>
-            <div style={{ width: '280px', height: '380px', background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.65)', backdropFilter: 'blur(30px)', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(123,70,243,0.12)', borderRadius: '24px', boxShadow: isDark ? '0 40px 80px rgba(0,0,0,0.5)' : '0 40px 80px rgba(123,70,243,0.08)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div style={{ height: '65%', background: isDark ? 'linear-gradient(135deg, rgba(58,97,246,0.1) 0%, rgba(244,114,182,0.1) 100%)' : 'linear-gradient(135deg, rgba(58,97,246,0.05) 0%, rgba(244,114,182,0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Watch size={90} color={isDark ? "white" : "var(--text-primary)"} style={{ filter: isDark ? 'drop-shadow(0 10px 20px rgba(0,0,0,0.4))' : 'drop-shadow(0 10px 20px rgba(123,70,243,0.06))' }} />
-              </div>
-              <div style={{ padding: '24px' }}>
-                <div style={{ width: '70%', height: '14px', background: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.12)', borderRadius: '6px', marginBottom: '16px' }}></div>
-                <div style={{ width: '50%', height: '12px', background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)', borderRadius: '6px', marginBottom: '12px' }}></div>
-                <div style={{ width: '30%', height: '14px', background: '#10b981', borderRadius: '6px' }}></div>
-              </div>
-            </div>
-
-            <div style={{ position: 'absolute', top: '-10px', right: '-80px', animation: 'float-badge-2 15s ease-in-out infinite' }}>
-              <div className="badge-glass">
-                <Sparkles size={22} color="#f472b6" style={{ filter: 'drop-shadow(0 0 10px rgba(244,114,182,0.5))' }} /> AI Shopping Assistant
-              </div>
-            </div>
-          </div>
-
-          <div style={{ position: 'absolute', bottom: '10%', left: '25%', animation: 'float-hero 18s ease-in-out infinite', animationDelay: '-10s' }}>
-            <div style={{ width: '240px', height: '280px', background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.65)', backdropFilter: 'blur(16px)', border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(123,70,243,0.08)', borderRadius: '24px', boxShadow: isDark ? '0 20px 40px rgba(0,0,0,0.3)' : '0 20px 40px rgba(123,70,243,0.05)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div style={{ height: '65%', background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Smartphone size={70} color={isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)"} style={{ filter: isDark ? 'drop-shadow(0 10px 20px rgba(0,0,0,0.2))' : 'drop-shadow(0 10px 20px rgba(123,70,243,0.04))' }} />
-              </div>
-              <div style={{ padding: '20px' }}>
-                <div style={{ width: '90%', height: '10px', background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)', borderRadius: '6px', marginBottom: '12px' }}></div>
-                <div style={{ width: '60%', height: '10px', background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', borderRadius: '6px' }}></div>
-              </div>
-            </div>
-
-            <div style={{ position: 'absolute', bottom: '-20px', left: '-50px', animation: 'float-badge-3 10s ease-in-out infinite' }}>
-              <div className="badge-glass">
-                <TrendingUp size={22} color="#34d399" style={{ filter: 'drop-shadow(0 0 10px rgba(52,211,153,0.5))' }} /> Smart Recommendations
-              </div>
-            </div>
-          </div>
-
-        </motion.div>
+        >
+          Create your account
+        </h1>
+        <p
+          style={{
+            fontSize: '14.5px',
+            color: 'var(--text-secondary)',
+            margin: 0,
+            lineHeight: '1.5',
+          }}
+        >
+          Set up your UCONEXT identity in moments.
+        </p>
       </div>
 
-      {/* Foreground Panel (Asymmetric Right) */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '20px 10%', zIndex: 10 }}>
-        
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="glass-panel hide-scrollbar"
-          style={{ width: '100%', maxWidth: '520px', borderRadius: '32px', padding: '40px', position: 'relative', overflowY: 'auto', maxHeight: 'calc(100vh - 40px)' }}
+      {/* Clean Error Notification Banner */}
+      {authError && (
+        <div
+          role="alert"
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px',
+            padding: '12px 14px',
+            borderRadius: '12px',
+            backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+            border: `1px solid ${isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca'}`,
+            color: isDark ? '#fca5a5' : '#b91c1c',
+            fontSize: '13px',
+            lineHeight: '1.45',
+            marginBottom: '18px',
+          }}
         >
-          {/* Top Panel Edge Highlight */}
-          <div style={{ position: 'absolute', top: 0, left: '20%', width: '60%', height: '1px', background: isDark ? 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)' : 'linear-gradient(90deg, transparent, rgba(123,70,243,0.2), transparent)' }} />
-          
-          <div style={{ marginBottom: '24px' }}>
-            <h1 style={{ fontSize: '40px', fontWeight: '800', color: isDark ? 'white' : 'var(--text-primary)', marginBottom: '12px', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-              Unlock Premium<br/>Shopping.
-            </h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '15px' }}>
-              <ShieldCheck size={18} color="#10b981" /> 
-              <span>Join over 1 Million verified members</span>
-            </div>
-          </div>
+          <AlertCircle size={17} style={{ flexShrink: 0, marginTop: '2px' }} />
+          <span>{authError}</span>
+        </div>
+      )}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            
-            <FloatingInput 
-              type="text"
-              label="Full Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+      {/* Registration Form */}
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        {/* Full Name Field */}
+        <AuthInput
+          id="register-name"
+          name="name"
+          label="Full name"
+          type="text"
+          placeholder="David Nguyen"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (authError) setAuthError('');
+          }}
+          required
+          autoComplete="name"
+        />
 
-            <FloatingInput 
-              type="email"
-              label="Email Address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={!isEmailValid}
-              iconRight={!isEmailValid ? <AlertCircle size={20} color="#ef4444" /> : email.length > 3 ? <CheckCircle2 size={20} color="#10b981" /> : null}
-            />
+        {/* Email Field */}
+        <AuthInput
+          id="register-email"
+          name="email"
+          label="Email address"
+          type="email"
+          placeholder="name@example.com"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (authError) setAuthError('');
+          }}
+          required
+          autoComplete="email"
+          error={!isEmailValid ? 'Please enter a valid email address' : null}
+        />
 
-            <div style={{ position: 'relative' }}>
-              <FloatingInput 
-                type={showPassword ? "text" : "password"}
-                label="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onKeyUp={handleKeyDown}
-                iconRight={
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex' }}>
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                }
-              />
-              <AnimatePresence>
-                {capsLockActive && (
-                  <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} style={{ position: 'absolute', right: '0', top: '-24px', fontSize: '12px', color: '#fbbf24', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <AlertCircle size={14} /> CAPS LOCK ON
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              
-              <PasswordStrength password={password} />
-            </div>
+        {/* Password Field */}
+        <div>
+          <AuthInput
+            id="register-password"
+            name="password"
+            label="Password"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="At least 8 characters"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (authError) setAuthError('');
+            }}
+            onKeyDown={handleKeyDown}
+            onKeyUp={handleKeyDown}
+            required
+            autoComplete="new-password"
+            rightElement={
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '6px',
+                }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            }
+          />
+          <PasswordStrength password={password} />
+        </div>
 
-            {/* Smart Submit CTA */}
-            <motion.button 
-              type="submit" 
-              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              disabled={submitting || success || !name || !email || !password || !isEmailValid || !isPasswordStrong}
-              style={{ 
-                height: '64px', borderRadius: '20px', fontSize: '16px', fontWeight: '800', width: '100%', marginTop: '16px',
-                background: success ? '#10b981' : 'linear-gradient(135deg, var(--color-accent) 0%, #3a61f6 100%)', 
-                color: 'white', border: 'none', cursor: (submitting || success || !isPasswordStrong) ? 'default' : 'pointer', 
-                boxShadow: success ? '0 20px 40px rgba(16,185,129,0.4)' : (!name || !email || !password || !isEmailValid || !isPasswordStrong) ? 'none' : '0 20px 40px rgba(123,70,243,0.4)',
-                opacity: (!name || !email || !password || !isEmailValid || !isPasswordStrong) ? 0.5 : 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        {/* Confirm Password Field */}
+        <div>
+          <AuthInput
+            id="register-confirm-password"
+            name="confirmPassword"
+            label="Confirm password"
+            type={showConfirmPassword ? 'text' : 'password'}
+            placeholder="Re-enter your password"
+            value={confirmPassword}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value);
+              if (authError) setAuthError('');
+            }}
+            onKeyDown={handleKeyDown}
+            onKeyUp={handleKeyDown}
+            required
+            autoComplete="new-password"
+            error={!isPasswordMatch ? 'Passwords do not match' : null}
+            rightElement={
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '6px',
+                }}
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            }
+          />
+
+          {capsLockActive && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                marginTop: '6px',
+                fontSize: '12px',
+                color: '#f59e0b',
+                fontWeight: '600',
               }}
             >
-              <AnimatePresence mode="wait">
-                {submitting ? (
-                  <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <Loader2 size={24} className="spin" />
-                  </motion.div>
-                ) : success ? (
-                  <motion.div key="success" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-                    <CheckCircle2 size={28} />
-                  </motion.div>
-                ) : (
-                  <motion.span key="text" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    Create Account <ArrowRight size={20} />
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </motion.button>
-          </form>
+              <AlertCircle size={13} />
+              <span>Caps Lock is active</span>
+            </div>
+          )}
+        </div>
 
-          <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '14px', borderTop: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.08)', paddingTop: '24px' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Already have an account?&nbsp;</span>
-            <Link to={`/login?redirect=${encodeURIComponent(redirectTarget)}`} style={{ color: isDark ? 'white' : 'var(--text-primary)', fontWeight: '700', textDecoration: 'none' }}>
-              Sign In
-            </Link>
-          </div>
+        {/* Terms and Privacy Agreement Checkbox */}
+        <div style={{ marginTop: '2px' }}>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '9px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              color: 'var(--text-secondary)',
+              lineHeight: '1.45',
+              userSelect: 'none',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={agreeTerms}
+              onChange={(e) => {
+                setAgreeTerms(e.target.checked);
+                if (authError) setAuthError('');
+              }}
+              style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '4px',
+                accentColor: '#2454F4',
+                marginTop: '2px',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            />
+            <span>
+              I agree to the{' '}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowTermsModal(true);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: '#2454F4',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
+                Terms of Service
+              </button>{' '}
+              and{' '}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowTermsModal(true);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: '#2454F4',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
+                Privacy Policy
+              </button>
+              .
+            </span>
+          </label>
+        </div>
 
-        </motion.div>
+        {/* Primary Create Account Button */}
+        <button
+          type="submit"
+          disabled={submitting || !isFormValid}
+          style={{
+            width: '100%',
+            height: '46px',
+            borderRadius: '12px',
+            backgroundColor: '#2454F4',
+            color: '#ffffff',
+            border: 'none',
+            fontSize: '14px',
+            fontWeight: '600',
+            fontFamily: '"Inter", sans-serif',
+            cursor: submitting || !isFormValid ? 'not-allowed' : 'pointer',
+            opacity: submitting || !isFormValid ? 0.55 : 1,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            marginTop: '6px',
+            boxShadow:
+              submitting || !isFormValid
+                ? 'none'
+                : '0 4px 14px rgba(36, 84, 244, 0.28)',
+            transition: 'background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            if (!submitting && isFormValid) {
+              e.currentTarget.style.backgroundColor = '#1b3ec8';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#2454F4';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          {submitting ? (
+            <>
+              <Loader2 size={17} className="spin" />
+              <span>Creating account...</span>
+            </>
+          ) : (
+            <span>Create Account</span>
+          )}
+        </button>
+      </form>
+
+      {/* Divider */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          margin: '20px 0 14px 0',
+        }}
+      >
+        <div
+          style={{
+            flex: 1,
+            height: '1px',
+            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)',
+          }}
+        />
+        <span
+          style={{
+            fontSize: '12.5px',
+            fontWeight: '500',
+            color: 'var(--text-muted)',
+          }}
+        >
+          or
+        </span>
+        <div
+          style={{
+            flex: 1,
+            height: '1px',
+            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)',
+          }}
+        />
       </div>
-    </div>
+
+      {/* Google Sign-up Button */}
+      <button
+        type="button"
+        onClick={handleGoogleAuth}
+        style={{
+          width: '100%',
+          height: '46px',
+          borderRadius: '12px',
+          border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(15, 23, 42, 0.12)'}`,
+          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
+          color: 'var(--text-primary)',
+          fontSize: '14px',
+          fontWeight: '500',
+          fontFamily: '"Inter", sans-serif',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '10px',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(15, 23, 42, 0.03)';
+          e.currentTarget.style.borderColor = isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(15, 23, 42, 0.2)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = isDark ? 'rgba(255, 255, 255, 0.03)' : '#ffffff';
+          e.currentTarget.style.borderColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(15, 23, 42, 0.12)';
+        }}
+      >
+        <GoogleIcon />
+        <span>Continue with Google</span>
+      </button>
+
+      {/* Footer Navigation */}
+      <div
+        style={{
+          marginTop: '22px',
+          paddingTop: '18px',
+          borderTop: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(15, 23, 42, 0.06)'}`,
+          textAlign: 'center',
+          fontSize: '13.5px',
+          color: 'var(--text-secondary)',
+        }}
+      >
+        Already have an account?{' '}
+        <Link
+          to={`/login?redirect=${encodeURIComponent(redirectTarget)}`}
+          style={{
+            color: '#2454F4',
+            fontWeight: '600',
+            textDecoration: 'none',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+        >
+          Sign in
+        </Link>
+      </div>
+
+      {/* Terms of Service & Privacy Policy Modal */}
+      {showTermsModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            padding: '20px',
+          }}
+          onClick={() => setShowTermsModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              backgroundColor: isDark ? 'var(--bg-elevated)' : '#ffffff',
+              borderRadius: '20px',
+              border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(15, 23, 42, 0.1)'}`,
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              padding: '28px',
+              position: 'relative',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <button
+              onClick={() => setShowTermsModal(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '6px',
+                borderRadius: '8px',
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            <h3
+              style={{
+                fontSize: '18px',
+                fontWeight: '700',
+                color: 'var(--text-primary)',
+                margin: '0 0 12px 0',
+              }}
+            >
+              Terms of Service & Privacy
+            </h3>
+
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                fontSize: '13px',
+                color: 'var(--text-secondary)',
+                lineHeight: '1.6',
+                paddingRight: '6px',
+              }}
+            >
+              <h4 style={{ color: 'var(--text-primary)', fontSize: '14px', margin: '14px 0 6px 0' }}>
+                1. System Access & Security
+              </h4>
+              <p style={{ margin: '0 0 10px 0' }}>
+                Your account provides secure access to the UCONEXT ecosystem. Credentials and personal identity data are encrypted end-to-end.
+              </p>
+
+              <h4 style={{ color: 'var(--text-primary)', fontSize: '14px', margin: '14px 0 6px 0' }}>
+                2. Privacy Commitment
+              </h4>
+              <p style={{ margin: '0 0 10px 0' }}>
+                We prioritize user privacy. Your information is used strictly to power your personalized experience and is never sold to third-party data brokers.
+              </p>
+
+              <h4 style={{ color: 'var(--text-primary)', fontSize: '14px', margin: '14px 0 6px 0' }}>
+                3. Connected Services
+              </h4>
+              <p style={{ margin: '0 0 10px 0' }}>
+                By creating an account, you agree to comply with system acceptable use policies and maintain the confidentiality of your credentials.
+              </p>
+            </div>
+
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)'}` }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAgreeTerms(true);
+                  setShowTermsModal(false);
+                }}
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor: '#2454F4',
+                  color: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                }}
+              >
+                I Understand & Agree
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </AuthLayout>
   );
 };
 
